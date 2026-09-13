@@ -6,7 +6,7 @@ struct KeychainStore: Sendable {
         case unexpectedStatus(OSStatus)
     }
 
-    private let service = "app.hermeslink.connections"
+    private let service = "app.agenty.connections"
 
     func save(_ value: String, account: String) throws {
         let data = Data(value.utf8)

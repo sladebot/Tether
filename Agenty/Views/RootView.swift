@@ -2,10 +2,11 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         MainTabView()
-        .alert("HermesLink", isPresented: Binding(
+        .alert("Agenty", isPresented: Binding(
             get: { model.alertMessage != nil },
             set: { if !$0 { model.alertMessage = nil } }
         )) {
@@ -13,6 +14,7 @@ struct RootView: View {
         } message: {
             Text(model.alertMessage ?? "")
         }
+        .onChange(of: scenePhase) { _, phase in model.handleScenePhase(phase) }
     }
 }
 

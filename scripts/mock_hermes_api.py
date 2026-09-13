@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small Hermes API Server protocol fixture for HermesLink end-to-end testing."""
+"""Small Hermes API Server protocol fixture for Agenty end-to-end testing."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
                 "<!DOCTYPE html><html><head><meta name=\"viewport\" "
                 "content=\"width=device-width,initial-scale=1\"><title>Test App</title>"
                 "<style>body{font:17px system-ui;padding:24px}button{font:inherit;padding:12px}</style>"
-                "</head><body><h1>HermesLink Test</h1><button onclick=\"this.textContent++\">0</button>"
+                "</head><body><h1>Agenty Test</h1><button onclick=\"this.textContent++\">0</button>"
                 "</body></html>"
             )
         else:

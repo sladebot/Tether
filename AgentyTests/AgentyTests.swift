@@ -1,7 +1,7 @@
 import XCTest
-@testable import HermesLink
+@testable import Agenty
 
-final class HermesLinkTests: XCTestCase {
+final class AgentyTests: XCTestCase {
     override func tearDown() {
         MockURLProtocol.handler = nil
         super.tearDown()
@@ -85,6 +85,57 @@ final class HermesLinkTests: XCTestCase {
         ).testConnection()
 
         XCTAssertEqual(model, "hermes-agent")
+    }
+
+    func testDiscoversOnlyAuthenticatedHermesModelOptions() async throws {
+        MockURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/api/model/options")
+            let body = #"{"providers":[{"slug":"custom:omlx","name":"omlx","authenticated":true,"models":["Qwen"]},{"slug":"offline","name":"Offline","authenticated":false,"models":["Nope"]}]}"#
+            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, Data(body.utf8))
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let choices = try await HermesAPIClient(
+            connection: AgentConnection(name: "Hermes", baseURL: "https://host.ts.net", route: .tailscale),
+            apiKey: "key", session: URLSession(configuration: configuration)
+        ).modelOptions()
+        XCTAssertEqual(choices, [ModelChoice(provider: "custom:omlx", providerName: "omlx", model: "Qwen")])
+    }
+
+    func testRunSubmissionUsesIdempotencySessionAndModelRouting() async throws {
+        MockURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/v1/runs")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "turn-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Hermes-Session-Id"), "chat-1")
+            let body = #"{"run_id":"run_1","status":"started","replayed":false}"#
+            return (HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!, Data(body.utf8))
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let submission = try await HermesAPIClient(
+            connection: AgentConnection(name: "Hermes", baseURL: "https://host.ts.net", route: .tailscale),
+            apiKey: "key", session: URLSession(configuration: configuration)
+        ).createRun(
+            input: "Hello", sessionID: "chat-1", history: [],
+            modelChoice: ModelChoice(provider: "custom:omlx", providerName: "omlx", model: "Qwen"),
+            idempotencyKey: "turn-1"
+        )
+        XCTAssertEqual(submission.runID, "run_1")
+    }
+
+    func testToolCompletionEventAcceptsBooleanErrorField() throws {
+        let data = #"{"event":"tool.completed","timestamp":1,"tool":"terminal","duration":0.12,"error":false}"#.data(using: .utf8)!
+        let event = try JSONDecoder().decode(HermesRunEvent.self, from: data)
+        XCTAssertEqual(event.tool, "terminal")
+        XCTAssertEqual(event.durationSeconds, 0.12)
+        XCTAssertNil(event.error)
+    }
+
+    func testApprovalEventCarriesServerChoices() throws {
+        let data = #"{"event":"approval.request","timestamp":1,"command":"redacted command","choices":["once","deny"]}"#.data(using: .utf8)!
+        let event = try JSONDecoder().decode(HermesRunEvent.self, from: data)
+        XCTAssertEqual(event.command, "redacted command")
+        XCTAssertEqual(event.choices, ["once", "deny"])
     }
 
     func testDashboardTokensRoundTrip() throws {

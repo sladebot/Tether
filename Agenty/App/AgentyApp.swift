@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct HermesLinkApp: App {
+struct AgentyApp: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {

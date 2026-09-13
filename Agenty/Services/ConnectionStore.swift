@@ -7,6 +7,8 @@ final class ConnectionStore {
     private let connectionsKey = "connections"
     private let selectedKey = "selectedConnectionID"
     private let chatKeyPrefix = "chat."
+    private let conversationsKeyPrefix = "conversations."
+    private let selectedConversationKeyPrefix = "selectedConversation."
 
     init(defaults: UserDefaults = .standard, keychain: KeychainStore = KeychainStore()) {
         self.defaults = defaults
@@ -97,5 +99,39 @@ final class ConnectionStore {
 
     func removeChat(for id: UUID) {
         defaults.removeObject(forKey: chatKeyPrefix + id.uuidString)
+        defaults.removeObject(forKey: conversationsKeyPrefix + id.uuidString)
+        defaults.removeObject(forKey: selectedConversationKeyPrefix + id.uuidString)
+    }
+
+    func loadConversations(for connectionID: UUID) -> ([Conversation], UUID?) {
+        let key = conversationsKeyPrefix + connectionID.uuidString
+        var conversations = defaults.data(forKey: key)
+            .flatMap { try? JSONDecoder().decode([Conversation].self, from: $0) } ?? []
+        if conversations.isEmpty {
+            let legacy = loadChat(for: connectionID)
+            if !legacy.isEmpty {
+                conversations = [Conversation(
+                    connectionID: connectionID,
+                    title: Self.title(from: legacy),
+                    messages: legacy
+                )]
+                saveConversations(conversations, selectedID: conversations[0].id, for: connectionID)
+                defaults.removeObject(forKey: chatKeyPrefix + connectionID.uuidString)
+            }
+        }
+        let selected = defaults.string(forKey: selectedConversationKeyPrefix + connectionID.uuidString)
+            .flatMap(UUID.init(uuidString:))
+        return (conversations.sorted { $0.updatedAt > $1.updatedAt }, selected)
+    }
+
+    func saveConversations(_ conversations: [Conversation], selectedID: UUID?, for connectionID: UUID) {
+        guard let data = try? JSONEncoder().encode(conversations) else { return }
+        defaults.set(data, forKey: conversationsKeyPrefix + connectionID.uuidString)
+        defaults.set(selectedID?.uuidString, forKey: selectedConversationKeyPrefix + connectionID.uuidString)
+    }
+
+    private static func title(from messages: [ChatMessage]) -> String {
+        guard let text = messages.first(where: { $0.role == .user })?.content else { return "New chat" }
+        return String(text.prefix(44))
     }
 }

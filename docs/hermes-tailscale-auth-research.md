@@ -14,14 +14,14 @@ iPhone identity/device ── Tailscale policy ──► Mac Studio
 App credential          ── Hermes auth     ──► Hermes operation
 ```
 
-For HermesLink, the recommended design is:
+For Agenty, the recommended design is:
 
 - Use the **Hermes API Server over Tailscale Serve** for chat and agent runs.
 - Store a high-entropy `API_SERVER_KEY` in the iOS Keychain.
 - Keep Hermes and the API Server bound to `127.0.0.1`; let Tailscale Serve terminate HTTPS and proxy to loopback.
 - Restrict the Serve endpoint to the intended Tailscale user/devices with tailnet grants.
 - Use the **Dashboard on a separate Serve HTTPS port** only for functionality that truly requires dashboard APIs or its PTY/WebSocket protocol.
-- If dashboard access is required now, use Hermes Basic auth behind Tailscale. HermesLink already implements a one-time password bootstrap followed by Keychain-held access/refresh tokens and one-use WebSocket tickets.
+- If dashboard access is required now, use Hermes Basic auth behind Tailscale. Agenty already implements a one-time password bootstrap followed by Keychain-held access/refresh tokens and one-use WebSocket tickets.
 
 This gives a small attack surface, avoids public exposure, avoids embedding an OAuth browser, and separates an app data plane from the host-owner dashboard control plane.
 
@@ -29,7 +29,7 @@ This gives a small attack surface, avoids public exposure, avoids embedding an O
 
 Hermes has several things called “auth,” but they protect different boundaries:
 
-| Boundary | What it protects | Mechanism relevant to HermesLink |
+| Boundary | What it protects | Mechanism relevant to Agenty |
 |---|---|---|
 | Tailscale network | Which tailnet identity/device can reach the Mac Studio service | Device/user identity, WireGuard, grants/ACLs |
 | Hermes API Server | Chat, Responses, Runs, sessions, skills/toolsets | `Authorization: Bearer $API_SERVER_KEY` |
@@ -37,7 +37,7 @@ Hermes has several things called “auth,” but they protect different boundari
 | Hermes model backend | Hermes-to-model traffic, such as Hermes calling OMLX | Provider-specific key or local trust; not an iOS credential |
 | Messaging gateway | Telegram/Discord/etc. users and pairing | Platform credentials and allowlists; not the dashboard/API Server gate |
 
-This distinction matters because a Tailscale login authenticates the device to the tailnet, while Hermes credentials authorize the resulting HTTP request to exercise a powerful agent. Likewise, the OMLX credential belongs between Hermes and OMLX; it should never be sent to HermesLink.
+This distinction matters because a Tailscale login authenticates the device to the tailnet, while Hermes credentials authorize the resulting HTTP request to exercise a powerful agent. Likewise, the OMLX credential belongs between Hermes and OMLX; it should never be sent to Agenty.
 
 ## 2. Hermes Web Dashboard authentication
 
@@ -179,7 +179,7 @@ Authorization: Bearer <access-token>
 
 Hermes returns a random ticket with a 30-second TTL. The app immediately opens one WebSocket with `?ticket=<ticket>`. The ticket is consumed on first successful validation and cannot be reused. A reconnect must mint a fresh ticket.^8
 
-This matters for HermesLink because `/api/ws` and `/api/pty` require separate fresh tickets. Reusing one ticket across both sockets or after a reconnect will fail by design.
+This matters for Agenty because `/api/ws` and `/api/pty` require separate fresh tickets. Reusing one ticket across both sockets or after a reconnect will fail by design.
 
 ## 4. Native OAuth and the iOS callback problem
 
@@ -195,8 +195,8 @@ This is an excellent desktop design, but the current Hermes route validation acc
 
 Consequences for iOS:
 
-- `ASWebAuthenticationSession` cannot complete the stock Hermes native flow through a HermesLink custom URL scheme.
-- Opening the regular web login page in `ASWebAuthenticationSession` preserves browser cookies, but iOS deliberately does not hand those cookies to the app. Without a callback carrying a redeemable code, HermesLink cannot “take it from there.”
+- `ASWebAuthenticationSession` cannot complete the stock Hermes native flow through a Agenty custom URL scheme.
+- Opening the regular web login page in `ASWebAuthenticationSession` preserves browser cookies, but iOS deliberately does not hand those cookies to the app. Without a callback carrying a redeemable code, Agenty cannot “take it from there.”
 - A `WKWebView` can implement Hermes' legacy embedded-login fallback and retain a private cookie jar. This is viable for Basic auth but is inferior for OAuth: it loses the trusted system-browser experience and couples the app to cookie extraction/synchronization.
 - A local HTTP listener on iOS could theoretically mimic the desktop loopback pattern, but app suspension, browser handoff, port lifetime, and App Store robustness make it a poor primary design.
 
@@ -210,7 +210,7 @@ The API Server is distinct from port 9119. It defaults to `127.0.0.1:8642`, is e
 Authorization: Bearer <API_SERVER_KEY>
 ```
 
-It exposes the interfaces most useful to HermesLink:
+It exposes the interfaces most useful to Agenty:
 
 - `POST /v1/chat/completions`, including SSE streaming
 - `POST /v1/responses`, with server-side continuation
@@ -265,13 +265,13 @@ This can produce a “Sign in with Tailscale” dashboard experience without ano
 - MagicDNS, HTTPS, and tailnet policy changes are required.
 - The `tsidp` process needs durable state or restarts invalidate registrations and sessions.
 - Tailscale labels it experimental and warns of breaking changes.
-- HermesLink still faces the stock native callback restriction on iOS. A browser can log into the dashboard, but clean bearer-token handoff to the iOS app still needs Hermes callback support or an embedded cookie flow.^13
+- Agenty still faces the stock native callback restriction on iOS. A browser can log into the dashboard, but clean bearer-token handoff to the iOS app still needs Hermes callback support or an embedded cookie flow.^13
 
 For this project, `tsidp` is a future SSO option rather than the immediate solution.
 
 ## 7. Deployment options
 
-| Option | UX | Security | iOS complexity | HermesLink fit |
+| Option | UX | Security | iOS complexity | Agenty fit |
 |---|---|---|---|---|
 | API Server key + Tailscale Serve | Provision once; no repeated login | Strong for single-owner private tailnet; shared static secret | Low | **Best chat/data plane** |
 | Dashboard Basic + Tailscale Serve | Enter password once; refresh automatically | Good behind tailnet; single shared identity | Medium | **Best current dashboard/PTY option** |
@@ -282,12 +282,12 @@ For this project, `tsidp` is a future SSO option rather than the immediate solut
 | Direct LAN HTTP + Basic | Password login | No TLS; reachable on LAN | Low | Testing only |
 | Tailscale Funnel | Public reachability | Expands exposure materially | Medium | Do not use for this private agent |
 
-## 8. Recommended HermesLink architecture
+## 8. Recommended Agenty architecture
 
 ### 8.1 Primary application plane
 
 ```text
-HermesLink on iPhone
+Agenty on iPhone
   ├─ Tailscale tunnel and tailnet grant
   ├─ HTTPS to mac-studio.<tailnet>.ts.net
   ├─ Authorization: Bearer <API_SERVER_KEY from Keychain>
@@ -302,7 +302,7 @@ HermesLink on iPhone
           Hermes agent → OMLX
 ```
 
-Use `/v1/responses` for ordinary multi-turn chat or `/v1/runs` when HermesLink needs reconnectable, long-running jobs and progress events. Give each app conversation a stable Hermes session or conversation identifier. Mini-app generation should use a strict application-level envelope that returns the complete isolated HTML plus metadata; treat generated HTML as untrusted and continue rendering it in a nonpersistent `WKWebView` with network-denying CSP.
+Use `/v1/responses` for ordinary multi-turn chat or `/v1/runs` when Agenty needs reconnectable, long-running jobs and progress events. Give each app conversation a stable Hermes session or conversation identifier. Mini-app generation should use a strict application-level envelope that returns the complete isolated HTML plus metadata; treat generated HTML as untrusted and continue rendering it in a nonpersistent `WKWebView` with network-denying CSP.
 
 ### 8.2 Optional dashboard plane
 
@@ -320,7 +320,7 @@ https://mac-studio.<tailnet>.ts.net:8443
 
 Set `dashboard.public_url` to that exact HTTPS origin and configure Basic auth with a scrypt password hash plus a stable random signing secret. Hermes requires this provider even though the backend socket is loopback, because the public URL is remote.^3
 
-HermesLink's dashboard flow should remain:
+Agenty's dashboard flow should remain:
 
 1. Read `/api/status` and `/api/auth/providers`.
 2. If Basic is advertised and no valid Keychain session exists, POST username/password once.
@@ -331,7 +331,7 @@ HermesLink's dashboard flow should remain:
 7. Mint a separate one-use WebSocket ticket for every `/api/ws` and `/api/pty` connection and reconnect.
 8. Delete tokens whenever the origin changes; never replay a credential to a different host.
 
-The current HermesLink implementation already follows this pattern. It should be considered a dashboard compatibility transport, not the preferred general chat API.
+The current Agenty implementation already follows this pattern. It should be considered a dashboard compatibility transport, not the preferred general chat API.
 
 ## 9. Configuration blueprint
 
@@ -414,10 +414,10 @@ iOS storage and UI:
 
 For the current Mac Studio + iPhone + private tailnet setup, the strongest practical choice is not full browser SSO. It is **Tailscale Serve plus two narrowly separated Hermes credentials**:
 
-- `API_SERVER_KEY` for the HermesLink chat/agent API.
-- Dashboard Basic access/refresh tokens only if HermesLink must use dashboard-only functions.
+- `API_SERVER_KEY` for the Agenty chat/agent API.
+- Dashboard Basic access/refresh tokens only if Agenty must use dashboard-only functions.
 
-This avoids exposing Hermes on the LAN, keeps the non-sudo sandbox intact, gives HTTPS without managing certificates, and gives the app a protocol designed for native API consumers. `tsidp` becomes attractive after Hermes supports an iOS-compatible registered callback or if HermesLink intentionally adopts a cookie-based embedded login flow.
+This avoids exposing Hermes on the LAN, keeps the non-sudo sandbox intact, gives HTTPS without managing certificates, and gives the app a protocol designed for native API consumers. `tsidp` becomes attractive after Hermes supports an iOS-compatible registered callback or if Agenty intentionally adopts a cookie-based embedded login flow.
 
 ## Sources
 

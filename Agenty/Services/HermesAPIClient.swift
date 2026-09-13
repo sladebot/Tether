@@ -60,6 +60,114 @@ struct HermesAPIClient: Sendable {
         return envelope.data.map(\.id)
     }
 
+    func modelOptions() async throws -> [ModelChoice] {
+        guard let url = connection.endpoint("api/model/options") else { throw ClientError.invalidURL }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        request.timeoutInterval = 20
+        authorize(&request)
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+        let envelope = try JSONDecoder().decode(ModelOptionsEnvelope.self, from: data)
+        return envelope.providers
+            .filter(\.authenticated)
+            .flatMap { provider in
+                provider.models.map { ModelChoice(provider: provider.slug, providerName: provider.name, model: $0) }
+            }
+    }
+
+    func createRun(
+        input: String, sessionID: String, history: [ChatMessage],
+        modelChoice: ModelChoice?, idempotencyKey: String
+    ) async throws -> RunSubmission {
+        guard let url = connection.endpoint("v1/runs") else { throw ClientError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+        request.setValue(sessionID, forHTTPHeaderField: "X-Hermes-Session-Id")
+        request.setValue("agenty:\(connection.id.uuidString.lowercased())", forHTTPHeaderField: "X-Hermes-Session-Key")
+        authorize(&request)
+        request.httpBody = try JSONEncoder().encode(RunRequest(
+            input: input,
+            sessionID: sessionID,
+            conversationHistory: history.map { .init(role: $0.role.rawValue, content: $0.content) },
+            model: modelChoice?.model,
+            provider: modelChoice?.provider
+        ))
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+        return try JSONDecoder().decode(RunSubmission.self, from: data)
+    }
+
+    func runStatus(_ runID: String) async throws -> RunStatus {
+        guard let url = connection.endpoint("v1/runs/\(runID)") else { throw ClientError.invalidURL }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        request.timeoutInterval = 15
+        authorize(&request)
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+        return try JSONDecoder().decode(RunStatus.self, from: data)
+    }
+
+    func runEvents(_ runID: String) -> AsyncThrowingStream<HermesRunEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard let url = connection.endpoint("v1/runs/\(runID)/events") else {
+                        throw ClientError.invalidURL
+                    }
+                    var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+                    request.timeoutInterval = 600
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    authorize(&request)
+                    let (bytes, response) = try await session.bytes(for: request)
+                    guard let http = response as? HTTPURLResponse else { throw ClientError.invalidResponse }
+                    guard (200..<300).contains(http.statusCode) else {
+                        var body = ""
+                        for try await line in bytes.lines { body += line }
+                        throw ClientError.server(status: http.statusCode, message: Self.errorMessage(from: Data(body.utf8)))
+                    }
+                    for try await line in bytes.lines {
+                        guard line.hasPrefix("data:") else { continue }
+                        let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                        guard let data = payload.data(using: .utf8),
+                              let event = try? JSONDecoder().decode(HermesRunEvent.self, from: data) else { continue }
+                        continuation.yield(event)
+                    }
+                    continuation.finish()
+                } catch is CancellationError {
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    func stopRun(_ runID: String) async throws {
+        guard let url = connection.endpoint("v1/runs/\(runID)/stop") else { throw ClientError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        authorize(&request)
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+    }
+
+    func resolveApproval(_ runID: String, choice: String) async throws {
+        guard let url = connection.endpoint("v1/runs/\(runID)/approval") else { throw ClientError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        authorize(&request)
+        request.httpBody = try JSONEncoder().encode(ApprovalRequest(choice: choice))
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+    }
+
     private func capabilities() async throws -> APIServerCapabilities {
         guard let url = connection.endpoint("v1/capabilities") else { throw ClientError.invalidURL }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
@@ -542,6 +650,107 @@ private struct DashboardAPIError: Decodable { let detail: String }
 private struct ModelsEnvelope: Decodable {
     struct Model: Decodable { let id: String }
     let data: [Model]
+}
+
+private struct ModelOptionsEnvelope: Decodable {
+    struct Provider: Decodable {
+        let slug: String
+        let name: String
+        let authenticated: Bool
+        let models: [String]
+    }
+    let providers: [Provider]
+}
+
+struct RunSubmission: Decodable, Sendable {
+    let runID: String
+    let status: String
+    let replayed: Bool?
+    enum CodingKeys: String, CodingKey { case runID = "run_id", status, replayed }
+}
+
+struct RunStatus: Decodable, Sendable {
+    let runID: String
+    let status: String
+    let output: String?
+    let error: String?
+    enum CodingKeys: String, CodingKey { case runID = "run_id", status, output, error }
+}
+
+struct HermesRunEvent: Decodable, Sendable {
+    let event: String
+    let timestamp: Double?
+    let delta: String?
+    let output: String?
+    let name: String?
+    let tool: String?
+    let status: String?
+    let summary: String?
+    let preview: String?
+    let text: String?
+    let command: String?
+    let choices: [String]?
+    let childSessionID: String?
+    let delegationID: String?
+    let durationSeconds: Double?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case event, timestamp, delta, output, name, tool, status, summary, preview, text, command, choices, error, duration
+        case childSessionID = "child_session_id"
+        case delegationID = "delegation_id"
+        case durationSeconds = "duration_seconds"
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        event = try values.decode(String.self, forKey: .event)
+        timestamp = try values.decodeIfPresent(Double.self, forKey: .timestamp)
+        delta = try values.decodeIfPresent(String.self, forKey: .delta)
+        output = try values.decodeIfPresent(String.self, forKey: .output)
+        name = try values.decodeIfPresent(String.self, forKey: .name)
+        tool = try values.decodeIfPresent(String.self, forKey: .tool)
+        status = try values.decodeIfPresent(String.self, forKey: .status)
+        summary = try values.decodeIfPresent(String.self, forKey: .summary)
+        preview = try values.decodeIfPresent(String.self, forKey: .preview)
+        text = try values.decodeIfPresent(String.self, forKey: .text)
+        command = try values.decodeIfPresent(String.self, forKey: .command)
+        choices = try values.decodeIfPresent([String].self, forKey: .choices)
+        childSessionID = try values.decodeIfPresent(String.self, forKey: .childSessionID)
+        delegationID = try values.decodeIfPresent(String.self, forKey: .delegationID)
+        durationSeconds = try values.decodeIfPresent(Double.self, forKey: .durationSeconds)
+            ?? values.decodeIfPresent(Double.self, forKey: .duration)
+        if let message = try? values.decodeIfPresent(String.self, forKey: .error) {
+            error = message
+        } else if (try? values.decodeIfPresent(Bool.self, forKey: .error)) == true {
+            error = "Tool reported an error"
+        } else {
+            error = nil
+        }
+    }
+
+    var identity: String {
+        let time = timestamp.map { String($0) } ?? ""
+        let subject = name ?? tool ?? ""
+        return [event, time, subject, childSessionID ?? ""].joined(separator: "|")
+    }
+}
+
+private struct ApprovalRequest: Encodable { let choice: String }
+
+private struct RunRequest: Encodable {
+    struct Message: Encodable { let role: String; let content: String }
+    let input: String
+    let sessionID: String
+    let conversationHistory: [Message]
+    let model: String?
+    let provider: String?
+
+    enum CodingKeys: String, CodingKey {
+        case input, model, provider
+        case sessionID = "session_id"
+        case conversationHistory = "conversation_history"
+    }
 }
 
 private struct APIServerCapabilities: Decodable {
