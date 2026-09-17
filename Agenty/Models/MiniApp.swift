@@ -1,5 +1,16 @@
 import Foundation
 
+struct MiniAppBuildJob: Codable {
+    var id = UUID()
+    let connectionID: UUID
+    let title: String
+    let prompt: String
+    let model: ModelChoice?
+    var runID: String?
+    var targetAppID: UUID?
+    var failureMessage: String? = nil
+}
+
 struct MiniApp: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var title: String

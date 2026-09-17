@@ -20,13 +20,18 @@ final class MiniAppStore {
             .sorted { $0.updatedAt > $1.updatedAt } ?? []
     }
 
-    func save(title: String, html: String) throws -> MiniApp {
+    func save(title: String, html: String, id: UUID = UUID()) throws -> MiniApp {
         try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
-        let app = MiniApp(title: title.trimmingCharacters(in: .whitespacesAndNewlines))
+        let existing = load().first { $0.id == id }
+        let app = MiniApp(id: id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), createdAt: existing?.createdAt ?? .now)
         let directory = directoryURL(for: app)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: false)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let old = try? Data(contentsOf: htmlURL(for: app))
+        if let old, old != Data(html.utf8) {
+            try old.write(to: directory.appending(path: "previous.html"), options: [.atomic, .completeFileProtection])
+        }
         try Data(html.utf8).write(to: htmlURL(for: app), options: [.atomic, .completeFileProtection])
-        var apps = load()
+        var apps = load().filter { $0.id != id }
         apps.insert(app, at: 0)
         try saveMetadata(apps)
         return app
@@ -38,6 +43,23 @@ final class MiniAppStore {
             try fileManager.removeItem(at: directory)
         }
         try saveMetadata(apps.filter { $0.id != app.id })
+    }
+
+    func rollback(_ app: MiniApp) throws {
+        let previous = try String(contentsOf: directoryURL(for: app).appending(path: "previous.html"), encoding: .utf8)
+        _ = try save(title: app.title, html: previous, id: app.id)
+    }
+
+    func chat(for app: MiniApp) -> [ChatMessage] {
+        guard let data = try? Data(contentsOf: directoryURL(for: app).appending(path: "chat.json")) else { return [] }
+        return (try? JSONDecoder().decode([ChatMessage].self, from: data)) ?? []
+    }
+
+    func appendChat(_ message: ChatMessage, for app: MiniApp) throws {
+        var messages = chat(for: app)
+        guard !messages.contains(where: { $0.id == message.id }) else { return }
+        messages.append(message)
+        try JSONEncoder().encode(messages).write(to: directoryURL(for: app).appending(path: "chat.json"), options: [.atomic, .completeFileProtection])
     }
 
     func htmlURL(for app: MiniApp) -> URL {

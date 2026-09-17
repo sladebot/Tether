@@ -87,9 +87,12 @@ struct AgentConnection: Identifiable, Codable, Hashable, Sendable {
 
     var normalizedBaseURL: URL? {
         var value = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !value.contains("://"), route == .tailscale { value = "https://" + value }
         while value.hasSuffix("/") { value.removeLast() }
         if value.hasSuffix("/v1") { value.removeLast(3) }
-        guard let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()) else {
+        guard let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()),
+              let host = url.host, !host.isEmpty, url.user == nil, url.password == nil,
+              url.query == nil, url.fragment == nil else {
             return nil
         }
         return url
@@ -98,6 +101,15 @@ struct AgentConnection: Identifiable, Codable, Hashable, Sendable {
     func endpoint(_ path: String) -> URL? {
         guard let base = normalizedBaseURL else { return nil }
         return base.appending(path: path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+    }
+
+    // Conversations and durable jobs belong to a server identity, not an editable label.
+    func preservingServerIdentity(previous: AgentConnection?) -> AgentConnection {
+        guard let previous, previous.id == id,
+              previous.transport != transport || previous.normalizedBaseURL != normalizedBaseURL else { return self }
+        var separate = self
+        separate.id = UUID()
+        return separate
     }
 
     var usesTailscaleHTTPS: Bool {

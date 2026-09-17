@@ -5,6 +5,7 @@ struct HermesAPIClient: Sendable {
         case invalidURL
         case invalidResponse
         case notHermesAPIServer
+        case durableRunsUnavailable(String)
         case server(status: Int, message: String)
 
         var errorDescription: String? {
@@ -12,6 +13,10 @@ struct HermesAPIClient: Sendable {
             case .invalidURL: "Enter a valid HTTP or HTTPS address."
             case .invalidResponse: "Hermes returned an unreadable response."
             case .notHermesAPIServer: "This endpoint does not identify itself as a Hermes API Server. Check that Tailscale Serve forwards to port 8642."
+            case let .durableRunsUnavailable(reason):
+                "This Hermes server cannot safely resume Agenty tasks: \(reason). Update or configure Hermes to support durable runs."
+            case let .server(status, _) where status == 401 || status == 403:
+                "Hermes rejected this token. Update the token in Connections and retry."
             case let .server(status, message): message.isEmpty ? "Hermes returned HTTP \(status)." : message
             }
         }
@@ -21,15 +26,42 @@ struct HermesAPIClient: Sendable {
     private let apiKey: String
     private let session: URLSession
 
-    init(connection: AgentConnection, apiKey: String, session: URLSession = .shared) {
+    private static let resilientSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.waitsForConnectivity = true
+        configuration.timeoutIntervalForResource = 900
+        return URLSession(configuration: configuration)
+    }()
+
+    static let diagnosticSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = false
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 12
+        return URLSession(configuration: configuration)
+    }()
+
+    init(connection: AgentConnection, apiKey: String, session: URLSession? = nil) {
         self.connection = connection
         self.apiKey = apiKey
-        self.session = session
+        self.session = session ?? Self.resilientSession
     }
 
     func testConnection() async throws -> String {
         if connection.transport == .dashboard {
             return try await HermesDashboardClient(connection: connection, accessToken: apiKey, session: session).testConnection()
+        }
+        try await requireDurableRuns()
+        let availableModels = try await models()
+        guard let model = availableModels.first else { throw ClientError.invalidResponse }
+        return model
+    }
+
+    /// Validate the advertised persistence contract before creating durable jobs.
+    /// Callers with already-saved profiles can use this without model discovery.
+    func requireDurableRuns() async throws {
+        guard connection.transport == .apiServer else {
+            throw ClientError.durableRunsUnavailable("use a Hermes API Server connection")
         }
         do {
             let capabilities = try await capabilities()
@@ -38,12 +70,26 @@ struct HermesAPIClient: Sendable {
                   capabilities.auth.required else {
                 throw ClientError.notHermesAPIServer
             }
+            let required = [
+                ("run submission", capabilities.features?.runSubmission),
+                ("run status", capabilities.features?.runStatus),
+                ("run events", capabilities.features?.runEventsSSE),
+                ("run stop", capabilities.features?.runStop)
+            ]
+            let missing = required.filter { $0.1 != true }.map(\.0)
+            guard missing.isEmpty else {
+                throw ClientError.durableRunsUnavailable("missing \(missing.joined(separator: ", "))")
+            }
+            guard let idempotency = capabilities.features?.runsIdempotency,
+                  idempotency.supported == true, idempotency.durable == true,
+                  let retention = idempotency.retentionSeconds, retention > 0 else {
+                throw ClientError.durableRunsUnavailable("persistent duplicate protection is unavailable")
+            }
         } catch let ClientError.server(status, _) where status == 404 {
-            // Older Hermes API Server builds predate capability discovery.
+            throw ClientError.durableRunsUnavailable("capability discovery is unavailable")
+        } catch ClientError.invalidResponse {
+            throw ClientError.durableRunsUnavailable("capability discovery returned an unsupported response")
         }
-        let availableModels = try await models()
-        guard let model = availableModels.first else { throw ClientError.invalidResponse }
-        return model
     }
 
     func models() async throws -> [String] {
@@ -146,6 +192,24 @@ struct HermesAPIClient: Sendable {
         }
     }
 
+    /// Adds guidance to the active turn. Do not automatically retry: the server may
+    /// have accepted guidance before a connection failure hid its acknowledgement.
+    func steerRun(_ runID: String, input: String) async throws {
+        guard let url = connection.endpoint("v1/runs/\(runID)/steer") else { throw ClientError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        authorize(&request)
+        request.httpBody = try JSONEncoder().encode(["input": input])
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+        struct Acknowledgement: Decodable { let accepted: Bool }
+        guard try JSONDecoder().decode(Acknowledgement.self, from: data).accepted else {
+            throw ClientError.invalidResponse
+        }
+    }
+
     func stopRun(_ runID: String) async throws {
         guard let url = connection.endpoint("v1/runs/\(runID)/stop") else { throw ClientError.invalidURL }
         var request = URLRequest(url: url)
@@ -156,14 +220,14 @@ struct HermesAPIClient: Sendable {
         try validate(response, data: data)
     }
 
-    func resolveApproval(_ runID: String, choice: String) async throws {
+    func resolveApproval(_ runID: String, choice: String, requestID: String? = nil) async throws {
         guard let url = connection.endpoint("v1/runs/\(runID)/approval") else { throw ClientError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         authorize(&request)
-        request.httpBody = try JSONEncoder().encode(ApprovalRequest(choice: choice))
+        request.httpBody = try JSONEncoder().encode(ApprovalRequest(choice: choice, requestID: requestID))
         let (data, response) = try await session.data(for: request)
         try validate(response, data: data)
     }
@@ -674,7 +738,8 @@ struct RunStatus: Decodable, Sendable {
     let status: String
     let output: String?
     let error: String?
-    enum CodingKeys: String, CodingKey { case runID = "run_id", status, output, error }
+    let approval: HermesRunEvent?
+    enum CodingKeys: String, CodingKey { case runID = "run_id", status, output, error, approval }
 }
 
 struct HermesRunEvent: Decodable, Sendable {
@@ -690,6 +755,7 @@ struct HermesRunEvent: Decodable, Sendable {
     let text: String?
     let command: String?
     let choices: [String]?
+    let requestID: String?
     let childSessionID: String?
     let delegationID: String?
     let durationSeconds: Double?
@@ -700,6 +766,7 @@ struct HermesRunEvent: Decodable, Sendable {
         case childSessionID = "child_session_id"
         case delegationID = "delegation_id"
         case durationSeconds = "duration_seconds"
+        case requestID = "request_id"
     }
 
     init(from decoder: Decoder) throws {
@@ -716,6 +783,7 @@ struct HermesRunEvent: Decodable, Sendable {
         text = try values.decodeIfPresent(String.self, forKey: .text)
         command = try values.decodeIfPresent(String.self, forKey: .command)
         choices = try values.decodeIfPresent([String].self, forKey: .choices)
+        requestID = try values.decodeIfPresent(String.self, forKey: .requestID)
         childSessionID = try values.decodeIfPresent(String.self, forKey: .childSessionID)
         delegationID = try values.decodeIfPresent(String.self, forKey: .delegationID)
         durationSeconds = try values.decodeIfPresent(Double.self, forKey: .durationSeconds)
@@ -736,7 +804,11 @@ struct HermesRunEvent: Decodable, Sendable {
     }
 }
 
-private struct ApprovalRequest: Encodable { let choice: String }
+private struct ApprovalRequest: Encodable {
+    let choice: String
+    let requestID: String?
+    enum CodingKeys: String, CodingKey { case choice, requestID = "request_id" }
+}
 
 private struct RunRequest: Encodable {
     struct Message: Encodable { let role: String; let content: String }
@@ -759,8 +831,33 @@ private struct APIServerCapabilities: Decodable {
         let required: Bool
     }
 
+    struct Features: Decodable {
+        struct Idempotency: Decodable {
+            let supported: Bool?
+            let durable: Bool?
+            let retentionSeconds: Double?
+            enum CodingKeys: String, CodingKey {
+                case supported, durable
+                case retentionSeconds = "retention_seconds"
+            }
+        }
+        let runSubmission: Bool?
+        let runStatus: Bool?
+        let runEventsSSE: Bool?
+        let runStop: Bool?
+        let runsIdempotency: Idempotency?
+        enum CodingKeys: String, CodingKey {
+            case runSubmission = "run_submission"
+            case runStatus = "run_status"
+            case runEventsSSE = "run_events_sse"
+            case runStop = "run_stop"
+            case runsIdempotency = "runs_idempotency"
+        }
+    }
+
     let platform: String
     let auth: Authentication
+    let features: Features?
 }
 
 private struct ChatRequest: Encodable {

@@ -41,6 +41,7 @@ struct RunApproval: Equatable, Sendable {
     let runID: String
     let command: String
     let choices: [String]
+    var requestID: String? = nil
 }
 
 struct PendingRun: Codable, Equatable, Sendable {
@@ -54,6 +55,7 @@ struct PendingRun: Codable, Equatable, Sendable {
     let conversationHistory: [ChatMessage]
     let createdAt: Date
     var state: State
+    var modelChoice: ModelChoice? = nil
 }
 
 struct Conversation: Identifiable, Codable, Equatable, Sendable {

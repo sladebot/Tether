@@ -29,6 +29,8 @@ struct ConnectionListView: View {
                         }
                     }
                 }
+                Button("Settings & test", systemImage: "slider.horizontal.3") { editing = connection }
+                    .font(.subheadline)
                 .swipeActions {
                     Button("Delete", role: .destructive) { model.remove(connection) }
                     Button("Edit") { editing = connection }.tint(.blue)

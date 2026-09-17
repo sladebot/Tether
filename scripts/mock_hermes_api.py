@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Small Hermes API Server protocol fixture for Agenty end-to-end testing."""
+"""Legacy streaming fixture; intentionally lacks durable runs.
+
+Agenty's durable API readiness check must reject this server. Do not use this
+fixture as proof of async mini-app or app-close recovery support.
+"""
 
 from __future__ import annotations
 

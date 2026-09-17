@@ -3,8 +3,10 @@ import WebKit
 
 struct MiniAppsView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
     @State private var showingBuilder = false
     @State private var showingConnections = false
+    @State private var confirmingDiscard = false
 
     var body: some View {
         NavigationStack {
@@ -32,15 +34,67 @@ struct MiniAppsView: View {
                 }
             }
             .navigationTitle("Mini Apps")
+            .safeAreaInset(edge: .top) {
+                if !model.miniAppBuildStatus.isEmpty {
+                    HStack(alignment: .top, spacing: 12) {
+                        if model.isBuildingMiniApp { ProgressView().padding(.top, 3) }
+                        else { Image(systemName: "info.circle").padding(.top, 3) }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(model.miniAppBuildStatus).font(.subheadline.weight(.medium))
+                            if model.miniAppBuildNeedsAttention {
+                                Button("Check saved build") { model.checkSavedMiniAppBuild() }.buttonStyle(.bordered)
+                                ViewThatFits(in: .horizontal) {
+                                    HStack { recoveryActions }
+                                    VStack(alignment: .leading) { recoveryActions }
+                                }.font(.caption)
+                            }
+                            if let approval = model.miniAppApproval {
+                                Text(approval.command).font(.caption).textSelection(.enabled)
+                                ViewThatFits(in: .horizontal) {
+                                    HStack { approvalButtons(approval) }
+                                    VStack(alignment: .leading) { approvalButtons(approval) }
+                                }
+                            }
+                            if model.isBuildingMiniApp {
+                                Text("You can leave this screen. Once submitted, Hermes keeps building; Agenty catches up when you return.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }.padding().frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+                        .accessibilityElement(children: .contain)
+                }
+            }
+            .task { model.resumeMiniAppBuild() }
             .navigationDestination(for: MiniApp.self) { app in MiniAppRunnerView(app: app) }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Build Mini App", systemImage: "plus") { showingBuilder = true }
-                        .disabled(model.selectedConnection == nil)
+                        .disabled(model.selectedConnection == nil || model.hasSavedMiniAppBuild)
                 }
             }
             .sheet(isPresented: $showingBuilder) { NavigationStack { MiniAppBuilderView() } }
             .sheet(isPresented: $showingConnections) { NavigationStack { ConnectionListView() } }
+            .confirmationDialog("Discard saved build?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
+                Button("Discard saved build", role: .destructive) { model.discardSavedMiniAppBuild() }
+                Button("Keep saved build", role: .cancel) {}
+            } message: {
+                Text("This removes Agenty’s saved checkpoint only. It does not stop a build that may still be running on Hermes. Starting another build can duplicate work.")
+            }
+        }
+    }
+
+    @ViewBuilder private var recoveryActions: some View {
+        Button("Connections") { showingConnections = true }
+        Button("Discard saved build", role: .destructive) { confirmingDiscard = true }
+    }
+
+    @ViewBuilder private func approvalButtons(_ approval: RunApproval) -> some View {
+        ForEach(approval.choices, id: \.self) { choice in
+            Button(choice == "once" ? "Allow once" : choice.capitalized) {
+                model.resolveMiniAppApproval(choice)
+            }.buttonStyle(.bordered)
         }
     }
 
@@ -51,9 +105,10 @@ struct MiniAppsView: View {
             Text("Describe a small tool and your Hermes agent will build it as an isolated HTML app.")
         } actions: {
             if model.selectedConnection == nil {
-                Button("Set Up Hermes") { showingConnections = true }.buttonStyle(.borderedProminent)
+                Button("Set Up Hermes") { showingConnections = true }.buttonStyle(AgentyPrimaryButtonStyle())
             } else {
-                Button("Build a Mini App") { showingBuilder = true }.buttonStyle(.borderedProminent)
+                Button("Build a Mini App") { showingBuilder = true }.buttonStyle(AgentyPrimaryButtonStyle())
+                    .disabled(model.hasSavedMiniAppBuild)
             }
         }
     }
@@ -64,6 +119,8 @@ private struct MiniAppBuilderView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var request = ""
+    @State private var submitting = false
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         Form {
@@ -71,50 +128,94 @@ private struct MiniAppBuilderView: View {
                 TextField("Name", text: $title)
                 TextField("Describe what it should do", text: $request, axis: .vertical)
                     .lineLimit(5...12)
+                    .focused($inputFocused)
             }
             Section {
                 Button {
+                    submitting = true
+                    inputFocused = false
                     Task {
                         if await model.buildMiniApp(title: title, request: request) { dismiss() }
+                        submitting = false
                     }
                 } label: {
                     HStack {
-                        Label("Build with Hermes", systemImage: "hammer")
+                        Label("Start building", systemImage: "hammer")
                         Spacer()
-                        if model.isBuildingMiniApp { ProgressView() }
+                        if submitting { ProgressView() }
                     }
                 }
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                           request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                          model.isBuildingMiniApp)
+                          model.hasSavedMiniAppBuild || submitting)
             } footer: {
-                if model.isBuildingMiniApp {
-                    Text("Hermes is generating and validating the HTML… \(model.miniAppBuildCharacterCount) characters received")
-                } else {
-                    Text("Mini apps can use inline HTML, CSS, and JavaScript. Network access and shared browser storage are blocked by the harness.")
-                }
+                Text("Your build is saved immediately. Once Hermes accepts it, you can close Agenty and return later for the result. Mini apps run privately with no network access.")
             }
         }
         .navigationTitle("Build Mini App")
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }.disabled(model.isBuildingMiniApp)
+                Button("Cancel") { dismiss() }
             }
         }
-        .interactiveDismissDisabled(model.isBuildingMiniApp)
     }
 }
 
 private struct MiniAppRunnerView: View {
     @EnvironmentObject private var model: AppModel
     let app: MiniApp
+    @State private var editing = false
+    @State private var request = ""
+    @State private var submitting = false
+    @State private var history: [ChatMessage] = []
+    private var current: MiniApp { model.miniApps.first { $0.id == app.id } ?? app }
 
     var body: some View {
-        IsolatedWebView(fileURL: model.miniAppURL(for: app))
-            .ignoresSafeArea(edges: .bottom)
+        VStack(spacing: 0) {
+            Picker("Mode", selection: $editing) {
+                Text("Preview").tag(false)
+                Text("Edit chat").tag(true)
+            }.pickerStyle(.segmented).padding()
+            if editing {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        Text("Ask Hermes to change this app. Your current version stays available until the update is ready.").font(.subheadline).foregroundStyle(.secondary)
+                        ForEach(history) { message in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(message.role == .user ? "You" : "Hermes").font(.caption.bold()).foregroundStyle(.secondary)
+                                Text(message.content).textSelection(.enabled)
+                            }
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding()
+                }
+                HStack(alignment: .bottom) {
+                    TextField("Describe a change…", text: $request, axis: .vertical).lineLimit(1...5)
+                    Button("Send") {
+                        submitting = true
+                        Task {
+                            if await model.buildMiniApp(title: current.title, request: request, updating: current) { request = "" }
+                            history = model.miniAppChat(for: app)
+                            submitting = false
+                        }
+                    }.disabled(submitting || model.hasSavedMiniAppBuild || request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }.padding().background(.bar)
+            } else {
+                IsolatedWebView(fileURL: model.miniAppURL(for: current)).id(current.updatedAt)
+            }
+        }
             .navigationTitle(app.title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Restore previous version") { model.rollbackMiniApp(current) }.disabled(model.hasSavedMiniAppBuild)
+                    } label: { Image(systemName: "ellipsis.circle") }
+                }
+            }
+            .task { history = model.miniAppChat(for: app) }
+            .onChange(of: model.miniAppBuildStatus) { _, _ in history = model.miniAppChat(for: app) }
     }
 }
 
