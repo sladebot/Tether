@@ -90,16 +90,26 @@ installed in the Hermes Sandbox guest:
 - `agenty-vm-firewall` -> `/usr/local/sbin/agenty-vm-firewall`
 - `app.agenty.vm-egress.plist` -> `/Library/LaunchDaemons/app.agenty.vm-egress.plist`
 
-They preserve tailnet DNS and SYN-ACK replies for inbound SSH/HTTPS, then block
-guest-initiated connections to tailnet, RFC1918, link-local, ULA, and the
-currently observed Studio LAN IPv6 prefix. The loader requires Apple's
+The post-login availability helper is:
+
+- `app.agenty.keep-awake.plist` -> `~/Library/LaunchAgents/app.agenty.keep-awake.plist`
+
+It runs `/usr/bin/caffeinate -i` as the guest user, preventing idle system sleep
+while leaving display sleep enabled. `RunAtLoad` and `KeepAlive` make the assertion
+return after login or an unexpected process exit. It cannot run before FileVault
+unlock because user LaunchAgents do not exist in that boot phase.
+
+They preserve tailnet DNS, permit the exact Studio tailnet IPv4/IPv6 destination
+on TCP 8446 for the authenticated oMLX route, and preserve SYN-ACK replies for
+inbound SSH/HTTPS. They then block other guest-initiated connections to tailnet,
+RFC1918, link-local, ULA, and the currently observed Studio LAN IPv6 prefix. The loader requires Apple's
 `com.apple/*` root anchor, validates syntax before loading, obtains its own PF
 enable token, and removes only its child anchor/token when stopped.
 
 These files are an evidence-backed snapshot, not a portable one-command
-installer. The Studio IPv6 prefix is environment-specific and must be remeasured
-after network changes. Guest administrator access can disable this layer, public
+installer. Studio tailnet addresses and the LAN IPv6 prefix are environment-specific
+and must be remeasured after re-enrollment or network changes. Guest administrator access can disable this layer, public
 addresses (including any public Studio relay/Funnel) are not blocked, and the
-LaunchDaemon has not yet passed a full guest reboot/FileVault-unlock test.
+LaunchDaemon has not yet passed a full pre-FileVault-unlock test.
 External tailnet/host enforcement plus a non-admin Hermes runtime are still
 required before calling the VM fully isolated.

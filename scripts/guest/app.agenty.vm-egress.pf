@@ -1,6 +1,11 @@
 # Allow Tailscale's node-local DNS resolver.
 pass out quick inet proto { tcp, udp } from any to 100.100.100.100 port 53 keep state label "agenty_tailscale_dns"
 
+# Permit only the authenticated oMLX HTTPS route on the Studio. These are the
+# Studio's stable tailnet addresses; remeasure after device re-enrollment.
+pass out quick inet proto tcp from any to 100.86.254.112 port 8446 flags S/SA keep state label "agenty_allow_omlx_v4"
+pass out quick inet6 proto tcp from any to fd7a:115c:a1e0::7237:fe70 port 8446 flags S/SA keep state label "agenty_allow_omlx_v6"
+
 # Permit SYN-ACK replies for inbound SSH and HTTPS connections over the tailnet.
 pass out quick inet proto tcp from any port { 22, 443 } to 100.64.0.0/10 flags SA/SA keep state label "agenty_tailnet_service_reply"
 pass out quick inet6 proto tcp from any port { 22, 443 } to fd7a:115c:a1e0::/48 flags SA/SA keep state label "agenty_tailnet_service_reply_v6"
