@@ -246,6 +246,19 @@ struct HermesAPIClient: Sendable {
         return value
     }
 
+    func featureReport() async throws -> HermesFeatureReport {
+        guard connection.transport == .apiServer,
+              let url = connection.endpoint("v1/capabilities") else { throw ClientError.invalidURL }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        request.timeoutInterval = 12
+        authorize(&request)
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+        let report = try JSONDecoder().decode(HermesFeatureReport.self, from: data)
+        guard report.platform == "hermes-agent" else { throw ClientError.notHermesAPIServer }
+        return report
+    }
+
     func stream(messages: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
         if connection.transport == .dashboard {
             return HermesDashboardClient(connection: connection, accessToken: apiKey, session: session).stream(messages: messages)
@@ -822,6 +835,40 @@ private struct RunRequest: Encodable {
         case input, model, provider
         case sessionID = "session_id"
         case conversationHistory = "conversation_history"
+    }
+}
+
+struct HermesFeatureReport: Decodable, Sendable {
+    enum Availability: String, Sendable { case available = "Available", unavailable = "Unavailable", unknown = "Not specified" }
+    struct Value: Decodable, Sendable {
+        let availability: Availability
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let flag = try? container.decode(Bool.self) {
+                availability = flag ? .available : .unavailable
+            } else if let flags = try? container.decode([String: Bool].self),
+                      let flag = flags["enabled"] ?? flags["supported"] {
+                availability = flag ? .available : .unavailable
+            } else if let object = try? container.decode(Flags.self),
+                      let flag = object.enabled ?? object.supported {
+                availability = flag ? .available : .unavailable
+            } else { availability = .unknown }
+        }
+        private struct Flags: Decodable { let enabled: Bool?; let supported: Bool? }
+    }
+    let platform: String
+    let features: [String: Value]
+
+    static func appSupport(for feature: String) -> String {
+        switch feature {
+        case "chat_completions", "chat_completions_streaming", "run_submission", "run_status",
+             "run_events_sse", "run_stop", "run_steer", "run_approval_response",
+             "tool_progress_events", "approval_events", "model_options", "runs_idempotency":
+            return "Client implementation exists · live acceptance still required"
+        case "session_resources", "session_chat", "session_chat_streaming", "session_fork", "session_model_lock":
+            return "Gap: server-session management (local conversations are separate)"
+        default: return "No native Agenty interface verified"
+        }
     }
 }
 

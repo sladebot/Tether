@@ -2,6 +2,19 @@ import XCTest
 @testable import Agenty
 
 final class AgentyTests: XCTestCase {
+    func testFeatureReportDistinguishesFlagsFromMetadataAndClientCoverage() throws {
+        let json = #"{"platform":"hermes-agent","features":{"audio_api":false,"run_stop":true,"runs_idempotency":{"supported":true,"durable":true,"retention_seconds":86400},"browser_extension_control":{"enabled":false,"capabilities":[]},"future_flag":"unknown","numeric":1}}"#
+        let report = try JSONDecoder().decode(HermesFeatureReport.self, from: Data(json.utf8))
+        XCTAssertEqual(report.features["audio_api"]?.availability, .unavailable)
+        XCTAssertEqual(report.features["run_stop"]?.availability, .available)
+        XCTAssertEqual(report.features["runs_idempotency"]?.availability, .available)
+        XCTAssertEqual(report.features["browser_extension_control"]?.availability, .unavailable)
+        XCTAssertEqual(report.features["future_flag"]?.availability, .unknown)
+        XCTAssertEqual(report.features["numeric"]?.availability, .unknown)
+        XCTAssertTrue(HermesFeatureReport.appSupport(for: "session_fork").hasPrefix("Gap:"))
+        XCTAssertEqual(HermesFeatureReport.appSupport(for: "future_flag"), "No native Agenty interface verified")
+    }
+
     func testDebugBootstrapReusesMatchingAPIServerAndPreservesConnections() throws {
         let studio = AgentConnection(
             name: "Studio", baseURL: "https://studio.example.ts.net:8445",

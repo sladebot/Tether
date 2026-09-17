@@ -44,7 +44,8 @@ Set Hermes `dashboard.public_url` to that exact `https://...:8443` origin and en
 
 - Multiple named LAN or Tailscale connection profiles
 - Origin-bound API keys and dashboard sessions stored in Keychain (never `UserDefaults`)
-- Hermes API Server verification through `/v1/capabilities`, with an older-server fallback to `/v1/models`
+- Hermes API Server verification through `/v1/capabilities`, requiring durable run support (older incompatible servers are rejected)
+- Live server feature availability under connection details, separating advertised capabilities from native app coverage
 - Rich model/provider discovery through `/api/model/options`, with searchable per-conversation model selection
 - Resumable server-side chat through `/v1/runs`, including durable idempotency keys and Hermes session continuity
 - Automatic recovery after force-close, suspension, or network loss without duplicate run submission
@@ -58,3 +59,9 @@ Set Hermes `dashboard.public_url` to that exact `https://...:8443` origin and en
 - Unit tests for endpoint normalization, authentication, model discovery, idempotent run submission, and SSE event parsing
 
 Hermes continues an accepted `/v1/runs` task on the server when iOS suspends or terminates Agenty. The app persists its run ID and reconciles the authoritative result when it can run again. iOS does not permit arbitrary apps to hold a network stream indefinitely in the background; this server-side handoff is what makes long-running work reliable.
+
+## Hermes feature parity
+
+See [the feature inventory and implementation backlog](docs/hermes-feature-parity.md)
+for current coverage, missing mobile workflows, server-only administration, and
+the acceptance criteria. Agenty does not yet implement every Hermes feature.

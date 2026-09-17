@@ -118,6 +118,12 @@ struct ConnectionEditorView: View {
             }
             Section {
                 DisclosureGroup("Advanced & connection details") {
+                    if transport == .apiServer {
+                        NavigationLink("Hermes feature availability") {
+                            HermesFeatureReportView(connection: draft, apiKey: apiKey)
+                        }
+                        .disabled(validationMessage != nil || credentialOrigin != draft.normalizedBaseURL)
+                    }
                     Picker("Protocol", selection: $transport) {
                         ForEach(AgentConnection.Transport.allCases) { Text($0.title).tag($0) }
                     }
@@ -255,5 +261,49 @@ struct ConnectionEditorView: View {
         case .connected: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         case .failed: Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
         }
+    }
+}
+
+private struct HermesFeatureReportView: View {
+    let connection: AgentConnection
+    let apiKey: String
+    @State private var report: HermesFeatureReport?
+    @State private var error: String?
+    @State private var loading = false
+
+    var body: some View {
+        List {
+            Section {
+                Text("Server support is not the same as an Agenty screen or a passed end-to-end test. Agent tools may work through chat without a dedicated interface.")
+                    .font(.footnote)
+                Text(connection.normalizedBaseURL?.host ?? "Hermes").font(.caption).foregroundStyle(.secondary)
+            }
+            if loading { ProgressView("Reading server capabilities…") }
+            if let error { Section("Could not verify") { Text(error); Button("Retry") { Task { await reload() } } } }
+            if let report {
+                ForEach(report.features.keys.sorted(), id: \.self) { key in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(key.replacingOccurrences(of: "_", with: " ").capitalized).font(.headline)
+                        Text("Server: \(report.features[key]?.availability.rawValue ?? "Not specified")")
+                        Text(HermesFeatureReport.appSupport(for: key)).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Hermes features")
+        .task { await reload() }
+        .refreshable { await reload() }
+    }
+
+    @MainActor private func reload() async {
+        guard !loading else { return }
+        loading = true; error = nil; report = nil
+        defer { loading = false }
+        do {
+            let result = try await HermesAPIClient(connection: connection, apiKey: apiKey, session: HermesAPIClient.diagnosticSession).featureReport()
+            try Task.checkCancellation()
+            report = result
+        } catch is CancellationError { }
+        catch { self.error = error.localizedDescription }
     }
 }
