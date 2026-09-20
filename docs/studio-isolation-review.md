@@ -62,7 +62,7 @@ Do not silently substitute claim 1 for claim 2.
 - Ordinary unrestricted TCP/443 egress permits public relays, proxies, and the Studio's Funnel. DNS blocking and a snapshot of relay IPs are not a robust no-access guarantee.
 - A strict solution needs a trusted default-deny egress gateway/proxy with a verified path that cannot be bypassed. Provider-specific HTTPS, DNS, Tailscale control/relay, and necessary maintenance flows require separately validated allowances. CONNECT-by-hostname alone is not proof of destination identity when the tunnel can reach shared infrastructure.
 - This will restrict arbitrary browser/computer-use Internet access. If unrestricted browsing is desired, protecting publicly exposed host applications instead depends on their application authentication and hardening, and the result must not be described as network unreachability.
-- Do not disable the existing Studio Funnel without explicit user authorization. No host-proxy addition or separate tailnet is necessary merely for Agenty ingress.
+- Do not disable the existing Studio Funnel without explicit user authorization. No host-proxy addition or separate tailnet is necessary merely for Tether ingress.
 
 ## Acceptance matrix
 

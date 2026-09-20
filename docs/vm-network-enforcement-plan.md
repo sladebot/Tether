@@ -6,7 +6,7 @@ Status: diagnostic phase passed for one IPv4 flow; permanent isolation NOT insta
 
 User approved **approved-service-only internet egress** after being told it limits general browser/computer-use internet access. The outstanding policy-choice blocker is resolved. Implement and verify this restriction outside the agent-controlled runtime; do not substitute unrestricted Internet plus host application authentication. This approval does not prove a suitable topology exists or authorize unrelated host service changes. Required administrator authentication and action-time security approvals still apply.
 
-Direct Agenty → guest Tailscale HTTPS → guest Hermes API, using the existing tailnet. Keep the Studio's original Hermes/API routes unchanged during migration. Do not create a separate identity/tailnet or Studio API proxy. Protect the Studio from VM-initiated access with outside-guest enforcement and guest privilege/sharing separation. A successful request from Agenty to Studio is not a failure condition; unwanted Hermes-to-Studio access is. Earlier separate-tailnet/gateway discussion below is alternatives research, not the chosen implementation. oMLX remains deferred.
+Direct Tether → guest Tailscale HTTPS → guest Hermes API, using the existing tailnet. Keep the Studio's original Hermes/API routes unchanged during migration. Do not create a separate identity/tailnet or Studio API proxy. Protect the Studio from VM-initiated access with outside-guest enforcement and guest privilege/sharing separation. A successful request from Tether to Studio is not a failure condition; unwanted Hermes-to-Studio access is. Earlier separate-tailnet/gateway discussion below is alternatives research, not the chosen implementation. oMLX remains deferred.
 
 ## Simpler alternative evaluated
 
@@ -40,7 +40,7 @@ Sources checked: https://tailscale.com/docs/features/sharing (quarantine, user s
 - Preserve other devices' existing routes and permissions; do not turn off their Funnel/SSH as a shortcut.
 - Verify fresh connections, relevant existing connections, guest reboot/address changes and enforcement restart behavior. Do not kill other devices' states to achieve a test result.
 - Review VM admin separation and test guest-only computer use.
-- Then configure the user-approved subscription provider, test durable jobs, and migrate Agenty using a separate saved connection.
+- Then configure the user-approved subscription provider, test durable jobs, and migrate Tether using a separate saved connection.
 
 Reference: UTM shared networking places the VM on a host-managed network; it is not by itself a containment policy: https://docs.getutm.app/settings-apple/devices/network/
 Reference: Tailscale grants are the tailnet access-control layer: https://tailscale.com/docs/features/access-control/grants

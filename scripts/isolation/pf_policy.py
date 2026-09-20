@@ -61,11 +61,11 @@ def generate(config):
         for name, target, port in services:
             if target.version == guest.version:
                 protocols = "{ tcp, udp }" if name == "resolver" else "tcp"
-                lines.append(f'pass quick {prefix} proto {protocols} from {guest} to {target} port {port} keep state label "agenty_{name}"')
+                lines.append(f'pass quick {prefix} proto {protocols} from {guest} to {target} port {port} keep state label "tether_{name}"')
         for target in transports:
             if target.version == guest.version:
-                lines.append(f'pass quick {prefix} proto tcp from {guest} to {target} port 443 keep state label "agenty_transport"')
-        lines.append(f'block drop quick {prefix} from {guest} to any label "agenty_default_deny"')
+                lines.append(f'pass quick {prefix} proto tcp from {guest} to {target} port 443 keep state label "tether_transport"')
+        lines.append(f'block drop quick {prefix} from {guest} to any label "tether_default_deny"')
     return "\n".join(lines) + "\n"
 
 

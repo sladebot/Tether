@@ -2,11 +2,11 @@
 
 ## Current execution order (supersedes isolation-first order below)
 
-User now requests functionality first, isolation later. Active goal: configure and verify guest Hermes with OpenAI subscription authentication, loopback bearer-protected API, guest tailnet HTTPS, separate Agenty phone profile, and live chat/build/edit/recovery/approval/stop/guest-CUA acceptance. Defer firewall, tailnet restrictions and non-admin hardening. Existing host services and rules remain in place; oMLX remains deferred. Historical isolation prerequisites below are not blockers for this functionality phase.
+User now requests functionality first, isolation later. Active goal: configure and verify guest Hermes with OpenAI subscription authentication, loopback bearer-protected API, guest tailnet HTTPS, separate Tether phone profile, and live chat/build/edit/recovery/approval/stop/guest-CUA acceptance. Defer firewall, tailnet restrictions and non-admin hardening. Existing host services and rules remain in place; oMLX remains deferred. Historical isolation prerequisites below are not blockers for this functionality phase.
 
 ## Objective and scope
 
-Complete direct Agenty → existing tailnet → guest HTTPS → non-admin Hermes,
+Complete direct Tether → existing tailnet → guest HTTPS → non-admin Hermes,
 using guest-local OpenAI subscription authentication. Protect Studio resources,
 restrict guest internet access to approved services, and preserve existing Studio
 services and other devices. oMLX remains deferred.
@@ -14,7 +14,7 @@ services and other devices. oMLX remains deferred.
 This plan supersedes the stale numbered remaining-gates section in
 `hermes-sandbox-migration.md`; the latest scope paragraph there still applies.
 The user requested implementation with a team. Three agents worked on network
-tooling, guest readiness, and Agenty integration. Deployment remains incomplete.
+tooling, guest readiness, and Tether integration. Deployment remains incomplete.
 
 ## Ordered implementation and acceptance
 
@@ -38,7 +38,7 @@ tooling, guest readiness, and Agenty integration. Deployment remains incomplete.
 - `scripts/guest/audit_readiness.py`: guest identity/config metadata/listener
   inventory and optional bounded loopback API discovery with filtered output.
   It does not read saved credentials; exit zero only verifies expected non-admin identity.
-- `Agenty/App/AppModel.swift`: freeze the conversation ID before network awaits;
+- `Tether/App/AppModel.swift`: freeze the conversation ID before network awaits;
   ignore cancelled submission/status responses and errors to prevent stale
   observers from modifying the newly selected connection/conversation.
 
@@ -47,8 +47,8 @@ tooling, guest readiness, and Agenty integration. Deployment remains incomplete.
 - Network tooling: 7 unit tests passed; agent also validated a generated candidate
   using macOS PF syntax-only mode, without loading it.
 - Guest tooling: 8 unit tests passed.
-- Agenty: rebuilt suite passed 35 tests, zero failures/skips, result bundle
-  `/tmp/agenty-team-migration-patched-tests-20260914.xcresult`.
+- Tether: rebuilt suite passed 35 tests, zero failures/skips, result bundle
+  `/tmp/tether-team-migration-patched-tests-20260914.xcresult`.
 - `git diff --check` passed. Existing unrelated edits were preserved.
 - The Swift tests do not directly simulate the specific UI cancellation race;
   the fix was reviewed and compile/regression-tested.

@@ -3,6 +3,8 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 build/
+.build/
+.swiftpm/
 
 # Local VM credential handoff; never commit bearer tokens.
 [Ss]hared/hermes.token

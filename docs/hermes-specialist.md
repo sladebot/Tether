@@ -1,4 +1,4 @@
-# Hermes specialist: Agenty integration reference
+# Hermes specialist: Tether integration reference
 
 Verified September 12, 2026. This document is the working reference for the Hermes specialist subagent. Prefer the running server's capability response over assumptions based on dashboard features or upstream documentation. Recheck after Hermes upgrades.
 
@@ -33,7 +33,7 @@ These rows come directly from authenticated discovery on this installation. “A
 | Memory write / configuration write | — | Explicitly false |
 | Scheduled jobs administration | — | `jobs_admin: false`; do not expose based on upstream docs alone |
 
-The runtime reports `server_agent`, server-side tool execution, and no split runtime. Agenty talks to Hermes; Hermes owns model credentials and performs tools on its host. An app connection does not provide a separate sandbox for terminal tools.
+The runtime reports `server_agent`, server-side tool execution, and no split runtime. Tether talks to Hermes; Hermes owns model credentials and performs tools on its host. An app connection does not provide a separate sandbox for terminal tools.
 
 ## Async contract and important limits
 
@@ -41,7 +41,7 @@ Upstream run handlers maintain execution independently of the SSE connection. Di
 
 Run creation should persist its exact body and unguessable idempotency key before transmission. Identical retries reuse the original run; a changed body conflicts. Retention is bounded. Never change model/history while retrying the same key. [Idempotency storage](https://github.com/NousResearch/hermes-agent/blob/main/gateway/platforms/api_server_run_idempotency.py)
 
-Recommended Agenty lifecycle:
+Recommended Tether lifecycle:
 
 1. Persist job ID, origin/profile, complete request, key, and submission time.
 2. Submit; persist accepted run ID before reporting server execution.
@@ -59,7 +59,7 @@ The live model inventory showed authenticated Nous (52), Anthropic (11), OpenAI 
 
 Upstream documents richer options, per-request model/provider selection, and request-scoped reasoning settings. Session overrides can take precedence. It also distinguishes detached delegation using server session history from requests supplying their own history; late child results can be read through session messages. Subagent lifecycle events are available, but detailed child tool events are intentionally excluded. [API guide](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/api-server.md)
 
-At audit time Agenty's `createRun` sends `conversation_history`. Before enabling detached child-result UX, decide deliberately whether to adopt authoritative server history and reconcile `/api/sessions/{id}/messages`. Do not promise late child results will appear in a client-owned history snapshot automatically.
+At audit time Tether's `createRun` sends `conversation_history`. Before enabling detached child-result UX, decide deliberately whether to adopt authoritative server history and reconcile `/api/sessions/{id}/messages`. Do not promise late child results will appear in a client-owned history snapshot automatically.
 
 ## Auth and Tailscale operation
 
@@ -69,7 +69,7 @@ Connection diagnostics should distinguish hostname lookup, route/VPN availabilit
 
 ## Mini apps and next integrations
 
-No dedicated mini-app generation API appears in the live discovery response. HTML generation is an Agenty workflow built on agent runs. Validation, storage, preview isolation and the library remain Agenty responsibilities; generated HTML is untrusted.
+No dedicated mini-app generation API appears in the live discovery response. HTML generation is an Tether workflow built on agent runs. Validation, storage, preview isolation and the library remain Tether responsibilities; generated HTML is untrusted.
 
 Highest-value next integrations are approval recovery, steering, server conversation history/forking, and a read-only skills/toolsets browser. Model reasoning controls should follow capability discovery. Scheduled jobs, voice, memory editing and browser control need additional verified support rather than UI promises.
 

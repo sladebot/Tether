@@ -71,7 +71,7 @@ read OAuth credential caches. Do not assume `api.openai.com` alone is sufficient
 subscription traffic or open all HTTPS as an undocumented fallback. Tailscale's
 control/relay needs must be handled by the network isolation implementation as well.
 
-The capability parser follows `Agenty/Services/HermesAPIClient.swift`:
+The capability parser follows `Tether/Services/HermesAPIClient.swift`:
 `features.run_submission/run_status/run_events_sse/run_stop`, and
 `features.runs_idempotency.supported/durable/retention_seconds`.
 
@@ -86,13 +86,13 @@ python3 -m unittest discover -s scripts/guest -p 'test_*.py' -v
 The following checked-in files mirror the root-owned configuration currently
 installed in the Hermes Sandbox guest:
 
-- `app.agenty.vm-egress.pf` -> `/etc/pf.anchors/app.agenty.vm-egress`
-- `agenty-vm-firewall` -> `/usr/local/sbin/agenty-vm-firewall`
-- `app.agenty.vm-egress.plist` -> `/Library/LaunchDaemons/app.agenty.vm-egress.plist`
+- `app.tether.vm-egress.pf` -> `/etc/pf.anchors/app.tether.vm-egress`
+- `tether-vm-firewall` -> `/usr/local/sbin/tether-vm-firewall`
+- `app.tether.vm-egress.plist` -> `/Library/LaunchDaemons/app.tether.vm-egress.plist`
 
 The post-login availability helper is:
 
-- `app.agenty.keep-awake.plist` -> `~/Library/LaunchAgents/app.agenty.keep-awake.plist`
+- `app.tether.keep-awake.plist` -> `~/Library/LaunchAgents/app.tether.keep-awake.plist`
 
 It runs `/usr/bin/caffeinate -i` as the guest user, preventing idle system sleep
 while leaving display sleep enabled. `RunAtLoad` and `KeepAlive` make the assertion

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Legacy streaming fixture; intentionally lacks durable runs.
 
-Agenty's durable API readiness check must reject this server. Do not use this
+Tether's durable API readiness check must reject this server. Do not use this
 fixture as proof of async mini-app or app-close recovery support.
 """
 
@@ -65,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
                 "<!DOCTYPE html><html><head><meta name=\"viewport\" "
                 "content=\"width=device-width,initial-scale=1\"><title>Test App</title>"
                 "<style>body{font:17px system-ui;padding:24px}button{font:inherit;padding:12px}</style>"
-                "</head><body><h1>Agenty Test</h1><button onclick=\"this.textContent++\">0</button>"
+                "</head><body><h1>Tether Test</h1><button onclick=\"this.textContent++\">0</button>"
                 "</body></html>"
             )
         else:

@@ -6,12 +6,12 @@ readonly pf=/sbin/pfctl
 readonly script_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
 case "${1:-internet}" in
     internet)
-        anchor=com.apple/000.agenty-vm-probe
+        anchor=com.apple/000.tether-vm-probe
         rules="$script_dir/probe-vm-pf.rules"
         description='only VM IPv4 HTTPS to 1.1.1.1 is blocked'
         ;;
     host)
-        anchor=com.apple/000.agenty-vm-host-probe
+        anchor=com.apple/000.tether-vm-host-probe
         rules="$script_dir/probe-vm-host-pf.rules"
         description='only recorded VM IPv4/IPv6 traffic to Studio interface addresses is blocked'
         ;;

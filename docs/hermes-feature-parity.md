@@ -1,6 +1,6 @@
-# Hermes → Agenty feature inventory and implementation backlog
+# Hermes → Tether feature inventory and implementation backlog
 
-Baseline: 2026-09-16, installed Hermes 0.21.2, Agenty source following commit 46496fa.
+Baseline: 2026-09-16, installed Hermes 0.21.2, Tether source following commit 46496fa.
 This is a feature-family inventory, not a claim that every provider, plugin, slash
 command, or upstream release is supported. Extensions make an absolute fixed list
 impossible. Installed CLI help, live API capabilities, and app source are the
@@ -8,7 +8,7 @@ authority for the current setup; current upstream docs may describe newer featur
 
 ## Evidence and status rules
 
-- **Client**: implementation found in Agenty; not automatically phone-verified.
+- **Client**: implementation found in Tether; not automatically phone-verified.
 - **Partial**: some client surface exists, with an important missing part.
 - **Agent**: potentially usable through Hermes chat if tools/providers are configured;
   not a native mobile feature, and not claimed tested.
@@ -17,13 +17,13 @@ authority for the current setup; current upstream docs may describe newer featur
   contract and appropriate authorization, not arbitrary command execution from UI.
 - A feature is complete only after its intended phone workflow passes live tests.
 
-Source anchors: `Agenty/Services/HermesAPIClient.swift`, `Agenty/App/AppModel.swift`,
-`Agenty/Views/ChatView.swift`, `Agenty/Views/MiniAppsView.swift`,
-`Agenty/Services/ConnectionStore.swift`, and installed `hermes --help`.
+Source anchors: `Tether/Services/HermesAPIClient.swift`, `Tether/App/AppModel.swift`,
+`Tether/Views/ChatView.swift`, `Tether/Views/MiniAppsView.swift`,
+`Tether/Services/ConnectionStore.swift`, and installed `hermes --help`.
 
 ## Conversation and execution
 
-| Feature | Agenty status | Remaining acceptance / implementation |
+| Feature | Tether status | Remaining acceptance / implementation |
 |---|---|---|
 | Text chat and streaming | Client | Phone sends and receives a real guest model reply |
 | Model/provider discovery and selection | Client | Verify selection on phone and provider failures |
@@ -45,7 +45,7 @@ Source anchors: `Agenty/Services/HermesAPIClient.swift`, `Agenty/App/AppModel.sw
 
 ## Tools, knowledge and integrations
 
-| Feature | Agenty status | Remaining acceptance / implementation |
+| Feature | Tether status | Remaining acceptance / implementation |
 |---|---|---|
 | Tool/toolset discovery and selection | Gap | Read advertised catalog; enforce per-session selection |
 | Tool search | Agent | Show selected tools and failures clearly |
@@ -68,7 +68,7 @@ Source anchors: `Agenty/Services/HermesAPIClient.swift`, `Agenty/App/AppModel.sw
 
 ## Media and deliverables
 
-| Feature | Agenty status | Remaining acceptance / implementation |
+| Feature | Tether status | Remaining acceptance / implementation |
 |---|---|---|
 | Image input / vision | Gap | Photo/file picker, supported payloads, size limits |
 | General file input / document extraction | Gap | Verify upload contract; do not send unsupported file parts |
@@ -77,17 +77,17 @@ Source anchors: `Agenty/Services/HermesAPIClient.swift`, `Agenty/App/AppModel.sw
 | Transcription and speech synthesis | Gap | Live `audio_api` is false; capability-gated controls |
 | Realtime voice | Gap | Live voice flags false; transport, interruptions and permissions |
 | Wake-word interaction | Server / Gap | Not equivalent to unrestricted iOS background listening |
-| Mini-app generation and isolated preview | Client | Agenty-specific feature; verify physical-phone generation |
+| Mini-app generation and isolated preview | Client | Tether-specific feature; verify physical-phone generation |
 | Mini-app edit/recovery/rollback | Client | Close/reopen during build/edit; one artifact/revision |
 
 ## Automation and administration
 
-| Feature | Agenty status | Remaining acceptance / implementation |
+| Feature | Tether status | Remaining acceptance / implementation |
 |---|---|---|
 | Cron schedules | Agent / Gap | List/create/pause/history with timezone-aware UI |
 | Session heartbeats / recurring loops | Agent / Gap | Session-bound controls and truthful idle/active status |
 | Kanban and worker lanes | Server / Gap | Board, assignment, lifecycle and multi-gateway ownership |
-| Named bots/profiles/group coordination | Server / Gap | Server profiles are not Agenty connection profiles |
+| Named bots/profiles/group coordination | Server / Gap | Server profiles are not Tether connection profiles |
 | Webhooks / peer agent messaging | Server / Gap | Subscription management and explicit external-send consent |
 | Messaging adapters and pairing | Server / Gap | Platform registry/status; separate account authorization |
 | Batch/trajectory export/research workflows | Server / Gap | Submission/status/export contract needed |

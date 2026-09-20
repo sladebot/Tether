@@ -27,7 +27,7 @@ class PolicyTests(unittest.TestCase):
         reverse["transport_addresses"].reverse()
         reverse["guest_addresses"].reverse()
         self.assertEqual(result, generate(reverse))
-        self.assertEqual(result.count('label "agenty_transport"'), 2)
+        self.assertEqual(result.count('label "tether_transport"'), 2)
         self.assertNotIn("to any port", result)
 
     def test_unsafe_transport_inventory_rejected(self):

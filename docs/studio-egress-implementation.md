@@ -30,12 +30,12 @@ PHYSICAL STUDIO
     Guest Tailscale Serve -> guest loopback authenticated Hermes API
 
 IPHONE
-  Agenty -> guest's own tailnet HTTPS endpoint (stateful replies allowed)
+  Tether -> guest's own tailnet HTTPS endpoint (stateful replies allowed)
 ```
 
 This deliberately permits access to **two narrow Studio infrastructure services**, the policy proxy and restricted resolver. It does not permit access to the Studio's personal apps, old Hermes, files, shell or desktop. Explain that exception to the user before installation; “no packets whatsoever to Studio” is not the same claim.
 
-This is implementable without changing the UTM backend, adding another Gmail account, or moving Agenty's ingress to a Studio proxy. It is a **non-admin agent containment design**, not proof against guest-root/kernel compromise. Guest PF protects the trusted transport exception; a root-compromised guest can disable that protection. Host PF still provides a useful independent limit, but cannot identify the originating guest Unix user.
+This is implementable without changing the UTM backend, adding another Gmail account, or moving Tether's ingress to a Studio proxy. It is a **non-admin agent containment design**, not proof against guest-root/kernel compromise. Guest PF protects the trusted transport exception; a root-compromised guest can disable that protection. Host PF still provides a useful independent limit, but cannot identify the originating guest Unix user.
 
 ## Why not simply allow a list of HTTPS hostnames?
 
