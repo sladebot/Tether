@@ -24,15 +24,6 @@
 		A1000000000000000000000F /* MiniAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* MiniAppStore.swift */; };
 		A10000000000000000000010 /* MiniAppsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* MiniAppsView.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* Assets.xcassets */; };
-		H10000000000000000000001 /* TetherHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000001 /* TetherHostApp.swift */; };
-		H10000000000000000000002 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000002 /* AppViewModel.swift */; };
-		H10000000000000000000003 /* HostRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000003 /* HostRootView.swift */; };
-		H10000000000000000000004 /* HostDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000004 /* HostDashboardView.swift */; };
-		H10000000000000000000005 /* SetupAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000005 /* SetupAssistantView.swift */; };
-		H10000000000000000000006 /* VMInventoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000006 /* VMInventoryView.swift */; };
-		H10000000000000000000007 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000007 /* DiagnosticsView.swift */; };
-		H10000000000000000000008 /* StatusComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000008 /* StatusComponents.swift */; };
-		H10000000000000000000009 /* TetherHostCore in Frameworks */ = {isa = PBXBuildFile; productRef = Q20000000000000000000001 /* TetherHostCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,16 +56,6 @@
 		B10000000000000000000011 /* MiniAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppStore.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* MiniAppsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppsView.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		I10000000000000000000001 /* TetherHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TetherHostApp.swift; sourceTree = "<group>"; };
-		I10000000000000000000002 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
-		I10000000000000000000003 /* HostRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostRootView.swift; sourceTree = "<group>"; };
-		I10000000000000000000004 /* HostDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostDashboardView.swift; sourceTree = "<group>"; };
-		I10000000000000000000005 /* SetupAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupAssistantView.swift; sourceTree = "<group>"; };
-		I10000000000000000000006 /* VMInventoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMInventoryView.swift; sourceTree = "<group>"; };
-		I10000000000000000000007 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
-		I10000000000000000000008 /* StatusComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusComponents.swift; sourceTree = "<group>"; };
-		I10000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		I1000000000000000000000A /* Tether Host for Mac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Tether Host for Mac.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -93,14 +74,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		L10000000000000000000002 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				H10000000000000000000009 /* TetherHostCore in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -109,7 +82,6 @@
 			children = (
 				D10000000000000000000003 /* Tether */,
 				D10000000000000000000008 /* TetherTests */,
-				J10000000000000000000001 /* TetherHost */,
 				D10000000000000000000009 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -181,7 +153,6 @@
 			children = (
 				B1000000000000000000000F /* Tether.app */,
 				B1000000000000000000000E /* TetherTests.xctest */,
-				I1000000000000000000000A /* Tether Host for Mac.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -191,46 +162,6 @@
 			children = (
 				B10000000000000000000013 /* Assets.xcassets */,
 				B1000000000000000000000C /* Info.plist */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
-		J10000000000000000000001 /* TetherHost */ = {
-			isa = PBXGroup;
-			children = (
-				J10000000000000000000002 /* App */,
-				J10000000000000000000003 /* Views */,
-				J10000000000000000000004 /* Resources */,
-			);
-			path = TetherHost;
-			sourceTree = "<group>";
-		};
-		J10000000000000000000002 /* App */ = {
-			isa = PBXGroup;
-			children = (
-				I10000000000000000000001 /* TetherHostApp.swift */,
-				I10000000000000000000002 /* AppViewModel.swift */,
-			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		J10000000000000000000003 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				I10000000000000000000003 /* HostRootView.swift */,
-				I10000000000000000000004 /* HostDashboardView.swift */,
-				I10000000000000000000005 /* SetupAssistantView.swift */,
-				I10000000000000000000006 /* VMInventoryView.swift */,
-				I10000000000000000000007 /* DiagnosticsView.swift */,
-				I10000000000000000000008 /* StatusComponents.swift */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		J10000000000000000000004 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				I10000000000000000000009 /* Info.plist */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -273,26 +204,6 @@
 			productReference = B1000000000000000000000E /* TetherTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		K10000000000000000000001 /* Tether Host for Mac */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = N10000000000000000000001 /* Build configuration list for PBXNativeTarget "Tether Host for Mac" */;
-			buildPhases = (
-				L10000000000000000000001 /* Sources */,
-				L10000000000000000000002 /* Frameworks */,
-				L10000000000000000000003 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "Tether Host for Mac";
-			packageProductDependencies = (
-				Q20000000000000000000001 /* TetherHostCore */,
-			);
-			productName = "Tether Host for Mac";
-			productReference = I1000000000000000000000A /* Tether Host for Mac.app */;
-			productType = "com.apple.product-type.application";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -310,9 +221,6 @@
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = E10000000000000000000001;
 					};
-					K10000000000000000000001 = {
-						CreatedOnToolsVersion = 26.6;
-					};
 				};
 			};
 			buildConfigurationList = C20000000000000000000003 /* Build configuration list for PBXProject "Tether" */;
@@ -324,16 +232,12 @@
 				Base,
 			);
 			mainGroup = D10000000000000000000002;
-			packageReferences = (
-				Q10000000000000000000001 /* XCLocalSwiftPackageReference "TetherHost" */,
-			);
 			productRefGroup = D10000000000000000000009 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				E10000000000000000000001 /* Tether */,
 				E10000000000000000000002 /* TetherTests */,
-				K10000000000000000000001 /* Tether Host for Mac */,
 			);
 		};
 /* End PBXProject section */
@@ -348,13 +252,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F30000000000000000000002 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		L10000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -390,21 +287,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000000000000000000000C /* TetherTests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		L10000000000000000000001 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				H10000000000000000000001 /* TetherHostApp.swift in Sources */,
-				H10000000000000000000002 /* AppViewModel.swift in Sources */,
-				H10000000000000000000003 /* HostRootView.swift in Sources */,
-				H10000000000000000000004 /* HostDashboardView.swift in Sources */,
-				H10000000000000000000005 /* SetupAssistantView.swift in Sources */,
-				H10000000000000000000006 /* VMInventoryView.swift in Sources */,
-				H10000000000000000000007 /* DiagnosticsView.swift in Sources */,
-				H10000000000000000000008 /* StatusComponents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -534,58 +416,6 @@
 			};
 			name = Release;
 		};
-		M10000000000000000000001 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Config/TetherHost.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 22BH2R3K7H;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = TetherHost/Resources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.tether.host;
-				PRODUCT_NAME = "Tether Host for Mac";
-				SDKROOT = macosx;
-				SUPPORTED_PLATFORMS = macosx;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Debug;
-		};
-		M10000000000000000000002 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Config/TetherHost.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 22BH2R3K7H;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = TetherHost/Resources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.tether.host;
-				PRODUCT_NAME = "Tether Host for Mac";
-				SDKROOT = macosx;
-				SUPPORTED_PLATFORMS = macosx;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -616,31 +446,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		N10000000000000000000001 /* Build configuration list for PBXNativeTarget "Tether Host for Mac" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				M10000000000000000000001 /* Debug */,
-				M10000000000000000000002 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		Q10000000000000000000001 /* XCLocalSwiftPackageReference "TetherHost" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = TetherHost;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		Q20000000000000000000001 /* TetherHostCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = Q10000000000000000000001 /* XCLocalSwiftPackageReference "TetherHost" */;
-			productName = TetherHostCore;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D10000000000000000000001 /* Project object */;
 }

@@ -17,22 +17,7 @@ For development-device bootstrap without hardcoding a secret, launch a Debug bui
 
 ## Tether Host for Mac
 
-The shared `Tether Host for Mac` scheme builds the first read-only macOS companion
-milestone. It enumerates UTM through `utmctl`, displays exact VM UUIDs and
-duplicate-name warnings, and keeps isolation unknown until fresh evidence from
-an accepted source exists. Management controls remain disabled in this build;
-it does not change the VM, firewall, Tailscale, or credentials.
-
-Core safety contracts and tests are in `TetherHost/`. Run them with:
-
-```sh
-cd TetherHost
-swift test
-```
-
-See `docs/tether-host-architecture.md` for the threat model and phased release
-gates, and `docs/tether-host-distribution.md` for the Developer ID/notarization
-pipeline scaffold.
+The macOS companion is maintained in the separate `Tether-Host` repository.
 
 On the Hermes host, enable the API server. For Tailscale Serve, keep it bound to loopback:
 
