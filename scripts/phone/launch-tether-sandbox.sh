@@ -3,7 +3,7 @@
 set -euo pipefail
 
 readonly DEVICE_ID="${TETHER_DEVICE_ID:-2CB86E93-55AB-5234-8F2C-D32353C7E792}"
-readonly BUNDLE_ID="${TETHER_BUNDLE_ID:-app.tetherhome.ios}"
+readonly BUNDLE_ID="${TETHER_BUNDLE_ID:-app.tetherflow.ios}"
 readonly API_URL="${TETHER_API_URL:-https://jarviss-virtual-machine.tail4a305f.ts.net}"
 readonly TOKEN_FILE="${TETHER_TOKEN_FILE:-${HOME}/hermes_token}"
 
