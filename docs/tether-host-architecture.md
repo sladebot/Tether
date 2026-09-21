@@ -1,4 +1,4 @@
-# Tether Host implementation
+# Tether Host for Mac implementation
 
 ## Repository assessment (2026-09-20)
 
@@ -53,7 +53,7 @@ The dirty `docs/hermes-sandbox-migration.md` belongs to the user and is preserve
 flowchart TB
     Phone[Authorized Tether iPhone] -->|Tailnet HTTPS + API authentication|Serve
     subgraph Host[Trusted Mac host]
-      GUI[Unprivileged Tether Host]
+      GUI[Unprivileged Tether Host for Mac]
       KC[Host Keychain]
       Helper[Signed privileged helper]
       Policy[Externally enforced VM network boundary]

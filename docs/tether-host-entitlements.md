@@ -1,4 +1,4 @@
-# Tether Host entitlements and approvals
+# Tether Host for Mac entitlements and approvals
 
 The committed entitlement files are deliberately empty baselines:
 
@@ -36,7 +36,7 @@ work without one:
 | `com.apple.security.get-task-allow` | Allows debugger attachment and is incompatible with a production trust model. |
 | `com.apple.security.cs.disable-library-validation` | Permits untrusted or other-team libraries in the process. |
 | `com.apple.security.cs.allow-unsigned-executable-memory` | Weakens hardened runtime code integrity. |
-| `com.apple.security.cs.allow-jit` | Tether Host has no planned JIT workload. |
+| `com.apple.security.cs.allow-jit` | Tether Host for Mac has no planned JIT workload. |
 | Broad file, camera, microphone, USB, screen capture | Outside host-app responsibilities and the isolation goal. |
 | Keychain access groups | Unnecessary while only the GUI owns host-side credentials. |
 
@@ -82,7 +82,7 @@ production requirement.
 | Accessibility | Guest macOS | Allows CUA to drive the guest UI | CUA can control the guest desktop session. It must have no path to the host desktop. |
 | Screen Recording | Guest macOS | Allows CUA to observe the guest display | CUA can capture guest display contents, which may contain user data. |
 | Provider login | Guest or user-owned browser flow | Authorizes model/provider access | Grants provider-specific account and data access. Store resulting credentials only in the intended guest store. |
-| Automation, only if AppleScript is adopted | Host macOS | Lets Tether Host send Apple Events to UTM | Lets the host app automate actions exposed by UTM; avoid by preferring `utmctl`. |
+| Automation, only if AppleScript is adopted | Host macOS | Lets Tether Host for Mac send Apple Events to UTM | Lets the host app automate actions exposed by UTM; avoid by preferring `utmctl`. |
 
 Tailscale account ACLs/grants are account-side controls. The app may generate and
 validate a proposed scoped policy, but it cannot silently approve or broaden the

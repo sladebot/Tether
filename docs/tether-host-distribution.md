@@ -1,4 +1,4 @@
-# Tether Host distribution
+# Tether Host for Mac distribution
 
 This repository contains a release pipeline scaffold. It has not produced a
 signed or notarized artifact, and no release is ready to distribute until the
@@ -34,7 +34,7 @@ access controls.
 ## Xcode release configuration
 
 Before executing the pipeline, the Xcode project must have a shared scheme
-named `Tether Host`, a Release configuration, and these settings on every code
+named `Tether Host for Mac`, a Release configuration, and these settings on every code
 target:
 
 - macOS deployment target and bundle identifiers fixed for the release;
@@ -91,9 +91,9 @@ The exact outputs are:
 
 | Output | Path |
 | --- | --- |
-| Xcode archive | `build/release/TetherHost.xcarchive` |
-| Exported app | `build/release/export/Tether Host.app` |
-| Signed, submitted, stapled disk image | `build/release/Tether.dmg` |
+| Xcode archive | `build/release/TetherHostForMac.xcarchive` |
+| Exported app | `build/release/export/Tether Host for Mac.app` |
+| Signed, submitted, stapled disk image | `build/release/Tether Host for Mac.dmg` |
 
 `validate-environment.sh --notary` makes a read-only notary history request to
 confirm the named profile before a full run. `verify-signatures.sh` verifies the
@@ -110,14 +110,14 @@ DMG. Never staple a rejected or superseded submission.
 
 ## Fresh-Mac release gate
 
-Test the final DMG on a supported Mac that has never run Tether Host and does not
+Test the final DMG on a supported Mac that has never run Tether Host for Mac and does not
 have the developer certificate installed. Download it through the intended
 delivery channel so it has the normal `com.apple.quarantine` attribute. Preserve
 the submitted DMG bytes; the download must have the same SHA-256 used by the
 release record.
 
 1. Disconnect the test Mac from the internet and confirm `xcrun stapler
-   validate Tether.dmg` and Gatekeeper assessment succeed. This exercises the
+   validate 'Tether Host for Mac.dmg'` and Gatekeeper assessment succeed. This exercises the
    stapled ticket rather than a live notary lookup.
 2. Open the DMG, drag the app to `/Applications`, and launch it through Finder.
    Confirm there is no unidentified-developer or damaged-app warning.
@@ -154,4 +154,4 @@ bundle identifiers, launch daemon property list, XPC code-signing checks, and
 entitlement file references must be implemented and reviewed. The pipeline must
 then be exercised with real Developer ID and notary credentials, followed by the
 fresh-Mac gate. Until that happens, the repository has no signed/notarized Tether
-Host release.
+Host for Mac release.

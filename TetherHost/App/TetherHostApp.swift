@@ -5,7 +5,7 @@ struct TetherHostApp: App {
     @StateObject private var model = AppViewModel(provider: LiveHostStatusProvider())
 
     var body: some Scene {
-        WindowGroup("Tether Host") {
+        WindowGroup("Tether Host for Mac") {
             HostRootView()
                 .environmentObject(model)
                 .frame(minWidth: 920, minHeight: 640)

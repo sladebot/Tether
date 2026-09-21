@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "K10000000000000000000001"
-               BuildableName = "Tether Host.app"
-               BlueprintName = "Tether Host"
+               BuildableName = "Tether Host for Mac.app"
+               BlueprintName = "Tether Host for Mac"
                ReferencedContainer = "container:Tether.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -43,15 +43,15 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "K10000000000000000000001"
-            BuildableName = "Tether Host.app"
-            BlueprintName = "Tether Host"
+            BuildableName = "Tether Host for Mac.app"
+            BlueprintName = "Tether Host for Mac"
             ReferencedContainer = "container:Tether.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
       <BuildableProductRunnable runnableDebuggingMode = "0">
-         <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "K10000000000000000000001" BuildableName = "Tether Host.app" BlueprintName = "Tether Host" ReferencedContainer = "container:Tether.xcodeproj">
+         <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "K10000000000000000000001" BuildableName = "Tether Host for Mac.app" BlueprintName = "Tether Host for Mac" ReferencedContainer = "container:Tether.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

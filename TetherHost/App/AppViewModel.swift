@@ -40,7 +40,7 @@ struct LiveHostStatusProvider: HostStatusProviding {
         ).first {
             journalStore = FileSetupJournalStore(
                 fileURL: support
-                    .appendingPathComponent("Tether Host", isDirectory: true)
+                    .appendingPathComponent("Tether Host for Mac", isDirectory: true)
                     .appendingPathComponent("setup-journal.json")
             )
         } else {

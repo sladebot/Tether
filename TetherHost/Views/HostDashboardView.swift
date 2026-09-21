@@ -49,7 +49,7 @@ struct HostDashboardView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Tether Host")
+            Text("Tether Host for Mac")
                 .font(.largeTitle.bold())
             Text(model.statusMessage)
                 .foregroundStyle(.secondary)

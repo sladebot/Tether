@@ -6,10 +6,10 @@ IFS=$'\n\t'
 readonly RELEASE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly TETHER_REPOSITORY_ROOT="$(cd "${RELEASE_SCRIPT_DIR}/../.." && pwd -P)"
 readonly TETHER_PROJECT_PATH="${TETHER_REPOSITORY_ROOT}/Tether.xcodeproj"
-readonly TETHER_ARCHIVE_PATH="${TETHER_REPOSITORY_ROOT}/build/release/TetherHost.xcarchive"
+readonly TETHER_ARCHIVE_PATH="${TETHER_REPOSITORY_ROOT}/build/release/TetherHostForMac.xcarchive"
 readonly TETHER_EXPORT_PATH="${TETHER_REPOSITORY_ROOT}/build/release/export"
-readonly TETHER_APP_PATH="${TETHER_EXPORT_PATH}/Tether Host.app"
-readonly TETHER_DMG_PATH="${TETHER_REPOSITORY_ROOT}/build/release/Tether.dmg"
+readonly TETHER_APP_PATH="${TETHER_EXPORT_PATH}/Tether Host for Mac.app"
+readonly TETHER_DMG_PATH="${TETHER_REPOSITORY_ROOT}/build/release/Tether Host for Mac.dmg"
 readonly TETHER_EXPORT_OPTIONS_TEMPLATE="${TETHER_REPOSITORY_ROOT}/Config/ExportOptions.DeveloperID.plist"
 
 release_log() {

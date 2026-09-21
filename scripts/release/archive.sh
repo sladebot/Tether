@@ -8,7 +8,7 @@ SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 source "${SCRIPT_DIRECTORY}/lib/common.sh"
 
 if [[ "${1:-}" != "--execute" ]]; then
-    release_log "dry run: would archive scheme 'Tether Host' to ${TETHER_ARCHIVE_PATH}"
+    release_log "dry run: would archive scheme 'Tether Host for Mac' to ${TETHER_ARCHIVE_PATH}"
     release_log "run validate-environment.sh, then pass --execute"
     exit 0
 fi
@@ -17,10 +17,10 @@ require_execute_flag "$@"
 ensure_new_output "${TETHER_ARCHIVE_PATH}"
 make_release_parent
 
-release_log "archiving Tether Host with hardened runtime enabled"
+release_log "archiving Tether Host for Mac with hardened runtime enabled"
 xcodebuild \
     -project "${TETHER_PROJECT_PATH}" \
-    -scheme "Tether Host" \
+    -scheme "Tether Host for Mac" \
     -configuration Release \
     -destination 'generic/platform=macOS' \
     -archivePath "${TETHER_ARCHIVE_PATH}" \

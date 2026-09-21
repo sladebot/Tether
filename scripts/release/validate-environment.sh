@@ -18,9 +18,9 @@ require_directory "${TETHER_PROJECT_PATH}"
 require_team_id
 require_signing_identity
 
-release_log "checking the Tether Host scheme without changing the project"
-if ! xcodebuild -project "${TETHER_PROJECT_PATH}" -scheme "Tether Host" -showBuildSettings >/dev/null; then
-    release_die "the shared Tether Host scheme is missing or cannot be evaluated"
+release_log "checking the Tether Host for Mac scheme without changing the project"
+if ! xcodebuild -project "${TETHER_PROJECT_PATH}" -scheme "Tether Host for Mac" -showBuildSettings >/dev/null; then
+    release_die "the shared Tether Host for Mac scheme is missing or cannot be evaluated"
 fi
 
 if [[ "${1:-}" == "--notary" ]]; then

@@ -1,4 +1,4 @@
-# Tether Host verification — 2026-09-20
+# Tether Host for Mac verification — 2026-09-20
 
 This records evidence for the initial read-only milestone. It is not evidence
 that the production installer, privileged helper, network boundary, guest
@@ -7,12 +7,12 @@ provisioner, pairing exchange, or signed/notarized DMG is complete.
 ## Implemented and verified
 
 - The Xcode project has a shared macOS application target and scheme named
-  `Tether Host`, with bundle identifier `app.tether.host`, macOS 14 minimum,
+  `Tether Host for Mac`, with bundle identifier `app.tether.host`, macOS 14 minimum,
   hardened runtime enabled in target settings, and an explicit empty entitlement
   baseline.
 - Debug and optimized Release builds succeeded for Apple silicon with code
   signing disabled for local verification. The Release build produced
-  `/tmp/tetherhost-release-derived/Build/Products/Release/Tether Host.app`.
+  `/tmp/tetherhost-rename-release/Build/Products/Release/Tether Host for Mac.app`.
 - The Debug app launched and remained running. Its provider is read-only and
   invokes only fixed `utmctl list` and exact-UUID `status` arguments.
 - The installed UTM version is 4.7.5. A live read-only `utmctl list` returned:
@@ -28,9 +28,10 @@ provisioner, pairing exchange, or signed/notarized DMG is complete.
   idempotent receipts, deterministic dual-stack firewall plans, insecure Serve
   rejection, health evidence freshness/source, pairing metadata without a
   reusable bearer token, and scoped repair/uninstall behavior.
-- All release scripts pass `bash -n`; their no-argument dry-run paths complete;
-  all configuration property lists and the Xcode project pass `plutil`; and
-  `git diff --check` is clean.
+- All release scripts pass `bash -n`; non-credential dry-run paths report the
+  renamed archive, app, and DMG paths; credential and artifact checks fail
+  closed when their prerequisites are absent. All configuration property lists
+  and the Xcode project pass `plutil`, and `git diff --check` is clean.
 
 ## Deliberately unperformed
 
@@ -47,10 +48,10 @@ provisioner, pairing exchange, or signed/notarized DMG is complete.
   state-reload, private/LAN/tailnet, and host-service negative tests pass.
 - No real phone pairing, guest provisioning, CUA permission flow, restart/fault
   recovery, fresh-Mac install, update, repair, token rotation, or uninstall
-  acceptance test has run through Tether Host.
+  acceptance test has run through Tether Host for Mac.
 
 The existing iOS regression suite was rerun after the Xcode project changes.
 All 39 tests passed; the result bundle is
-`/tmp/tether-host-ios-regression-20260920.xcresult`. Historical VM evidence in
+`/tmp/tether-host-for-mac-rename-ios.xcresult`. Historical VM evidence in
 `hermes-sandbox-migration.md` remains separate and was not reclassified as
-Tether Host acceptance in this milestone.
+Tether Host for Mac acceptance in this milestone.

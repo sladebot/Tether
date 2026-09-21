@@ -15,9 +15,9 @@ For development-device bootstrap without hardcoding a secret, launch a Debug bui
 3. Build and run.
 4. Add a **Hermes API Server** connection such as `http://192.168.1.20:8642` for LAN, or preferably an HTTPS Tailscale Serve URL such as `https://my-mac.tailnet-name.ts.net`.
 
-## Tether Host for macOS
+## Tether Host for Mac
 
-The shared `Tether Host` scheme builds the first read-only macOS companion
+The shared `Tether Host for Mac` scheme builds the first read-only macOS companion
 milestone. It enumerates UTM through `utmctl`, displays exact VM UUIDs and
 duplicate-name warnings, and keeps isolation unknown until fresh evidence from
 an accepted source exists. Management controls remain disabled in this build;

@@ -24,13 +24,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-ditto "${TETHER_APP_PATH}" "${temporary_directory}/Tether Host.app"
+ditto "${TETHER_APP_PATH}" "${temporary_directory}/Tether Host for Mac.app"
 ln -s /Applications "${temporary_directory}/Applications"
 
 release_log "creating read-only compressed DMG"
 hdiutil create \
     -srcfolder "$temporary_directory" \
-    -volname "Tether" \
+    -volname "Tether Host for Mac" \
     -format UDZO \
     -fs HFS+ \
     "${TETHER_DMG_PATH}"

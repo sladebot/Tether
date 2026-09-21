@@ -9,7 +9,7 @@ struct HostRootView: View {
                 Label(destination.title, systemImage: destination.symbol)
                     .tag(destination)
             }
-            .navigationTitle("Tether Host")
+            .navigationTitle("Tether Host for Mac")
             .navigationSplitViewColumnWidth(min: 190, ideal: 220)
         } detail: {
             Group {
@@ -48,7 +48,7 @@ struct HostSettingsView: View {
         Form {
             Section("Status collection") {
                 LabeledContent("Mode", value: "Read only")
-                Text("Tether Host does not change the VM, credentials, or network policy in this build.")
+                Text("Tether Host for Mac does not change the VM, credentials, or network policy in this build.")
                     .foregroundStyle(.secondary)
             }
             Section("Last refresh") {
