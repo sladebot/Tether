@@ -471,7 +471,7 @@
 				INFOPLIST_FILE = Tether/Resources/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.tether.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = app.tetherhome.ios;
 				PRODUCT_MODULE_NAME = Tether;
 				PRODUCT_NAME = Tether;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -493,7 +493,7 @@
 				INFOPLIST_FILE = Tether/Resources/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.tether.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = app.tetherhome.ios;
 				PRODUCT_MODULE_NAME = Tether;
 				PRODUCT_NAME = Tether;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -511,7 +511,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.tether.ios.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.tetherhome.ios.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -526,7 +526,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.tether.ios.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.tetherhome.ios.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

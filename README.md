@@ -9,7 +9,7 @@ Hermes Dashboard on port 9119 remains available as an advanced control-plane com
 ## Run
 
 1. Open `Tether.xcodeproj` in Xcode 26 or newer.
-2. Select the `Tether` scheme and an iPhone running iOS 18 or newer. The app appears on the device as `Tether Flow`; its Xcode product is `Tether` with bundle identifier `app.tether.ios`.
+2. Select the `Tether` scheme and an iPhone running iOS 18 or newer. The app appears on the device as `Tether Flow`; its Xcode product is `Tether` with bundle identifier `app.tetherhome.ios`.
 
 For development-device bootstrap without hardcoding a secret, launch a Debug build with `TETHER_API_URL` and `TETHER_API_TOKEN` environment variables. Tether imports the token once into its origin-bound Keychain record; Release builds do not read this bootstrap environment.
 3. Build and run.
