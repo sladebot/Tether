@@ -2,20 +2,6 @@
 
 Native iPhone chat and mini apps for a private, self-hosted Hermes Agent—provisioned by [Tether Host for Mac](https://github.com/sladebot/Tether-Host).
 
-## Screenshots
-
-### Private Hermes connection over Tailscale
-
-![Verified private Hermes connection over Tailscale](./screenshots/tailscale-live-connection-success.png)
-
-### Durable agent chat
-
-![Completed Hermes agent chat in Tether Flow](./screenshots/tether-live-chat-final.png)
-
-### Isolated mini app
-
-![Agent-generated mini app running in Tether Flow](./screenshots/tailscale-live-mini-app-success.png)
-
 ## Overview
 
 Tether Flow is the iOS companion to Tether Host for Mac. The host app creates or adopts an isolated macOS VM, installs and verifies Hermes inside that guest, and produces a private Tailscale connection for the phone.
