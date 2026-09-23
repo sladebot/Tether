@@ -2,13 +2,19 @@
 
 Native iPhone chat and mini apps for a private, self-hosted Hermes Agent—provisioned by [Tether Host for Mac](https://github.com/sladebot/Tether-Host).
 
-<p align="center">
-  <img src="screenshots/tailscale-live-connection-success.png" width="30%" alt="Verified private Hermes connection over Tailscale">
-  <img src="screenshots/tether-live-chat-final.png" width="30%" alt="Completed Hermes agent chat in Tether Flow">
-  <img src="screenshots/tailscale-live-mini-app-success.png" width="30%" alt="Agent-generated mini app running in Tether Flow">
-</p>
+## Screenshots
 
-<p align="center"><sub>Private connection · Durable agent chat · Isolated mini apps</sub></p>
+### Private Hermes connection over Tailscale
+
+![Verified private Hermes connection over Tailscale](./screenshots/tailscale-live-connection-success.png)
+
+### Durable agent chat
+
+![Completed Hermes agent chat in Tether Flow](./screenshots/tether-live-chat-final.png)
+
+### Isolated mini app
+
+![Agent-generated mini app running in Tether Flow](./screenshots/tailscale-live-mini-app-success.png)
 
 ## Overview
 
