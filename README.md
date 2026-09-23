@@ -68,7 +68,7 @@ Tether Flow connects to Hermes' application-facing API Server, stores its creden
 
 ### 1. Prepare the guest with Tether Host
 
-1. Download or build [Tether Host for Mac](https://github.com/sladebot/Tether-Host).
+1. Download the [latest Tether Host preview](https://github.com/sladebot/Tether-Host/releases), or build Tether Host for Mac from source.
 2. Create or select a macOS VM in Tether Host.
 3. Run **Tether Guest Installer** inside the VM and complete Tailscale, Hermes, model-login, and computer-use setup.
 4. Finish **Verify connection** in the guest.
