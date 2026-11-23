@@ -37,7 +37,7 @@ struct AgentActivity: Identifiable, Codable, Equatable, Sendable {
     var timestamp: Date
 }
 
-struct RunApproval: Equatable, Sendable {
+struct RunApproval: Codable, Equatable, Sendable {
     let runID: String
     let command: String
     let choices: [String]
@@ -56,6 +56,9 @@ struct PendingRun: Codable, Equatable, Sendable {
     let createdAt: Date
     var state: State
     var modelChoice: ModelChoice? = nil
+    var stopRequested: Bool? = nil
+    var firstSubmissionAt: Date? = nil
+    var retentionSeconds: TimeInterval? = nil
 }
 
 struct Conversation: Identifiable, Codable, Equatable, Sendable {

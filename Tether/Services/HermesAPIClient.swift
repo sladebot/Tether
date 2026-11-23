@@ -59,7 +59,8 @@ struct HermesAPIClient: Sendable {
 
     /// Validate the advertised persistence contract before creating durable jobs.
     /// Callers with already-saved profiles can use this without model discovery.
-    func requireDurableRuns() async throws {
+    @discardableResult
+    func requireDurableRuns() async throws -> TimeInterval {
         guard connection.transport == .apiServer else {
             throw ClientError.durableRunsUnavailable("use a Hermes API Server connection")
         }
@@ -85,6 +86,7 @@ struct HermesAPIClient: Sendable {
                   let retention = idempotency.retentionSeconds, retention > 0 else {
                 throw ClientError.durableRunsUnavailable("persistent duplicate protection is unavailable")
             }
+            return retention
         } catch let ClientError.server(status, _) where status == 404 {
             throw ClientError.durableRunsUnavailable("capability discovery is unavailable")
         } catch ClientError.invalidResponse {

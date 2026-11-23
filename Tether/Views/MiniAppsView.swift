@@ -2,6 +2,7 @@ import SwiftUI
 import WebKit
 
 struct MiniAppsView: View {
+    var embedded = false
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var showingBuilder = false
@@ -33,7 +34,7 @@ struct MiniAppsView: View {
                     }
                 }
             }
-            .navigationTitle("Mini Apps")
+            .navigationTitle(embedded ? "Library" : "Mini Apps")
             .safeAreaInset(edge: .top) {
                 if !model.miniAppBuildStatus.isEmpty {
                     HStack(alignment: .top, spacing: 12) {
@@ -68,7 +69,7 @@ struct MiniAppsView: View {
             .task { model.resumeMiniAppBuild() }
             .navigationDestination(for: MiniApp.self) { app in MiniAppRunnerView(app: app) }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } }
+                if !embedded { ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } } }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Build Mini App", systemImage: "plus") { showingBuilder = true }
                         .disabled(model.selectedConnection == nil || model.hasSavedMiniAppBuild)
@@ -232,7 +233,12 @@ private struct IsolatedWebView: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.isInspectable = false
-        webView.loadFileURL(fileURL, allowingReadAccessTo: fileURL.deletingLastPathComponent())
+        // Reapply the trusted policy to legacy saved documents too. Loading a string
+        // also avoids granting generated code read access to sibling files.
+        if let source = try? String(contentsOf: fileURL, encoding: .utf8),
+           let document = try? MiniAppDocument.prepare(source) {
+            webView.loadHTMLString(document, baseURL: nil)
+        }
         return webView
     }
 
@@ -246,7 +252,7 @@ private struct IsolatedWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
             guard let url = navigationAction.request.url else { return .cancel }
-            let allowed = url.isFileURL && url.standardizedFileURL == allowedFileURL
+            let allowed = url.absoluteString == "about:blank"
             return allowed ? .allow : .cancel
         }
     }

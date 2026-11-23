@@ -6,10 +6,23 @@ Native iPhone chat and mini apps for a private, self-hosted Hermes Agent—provi
 
 Tether Flow is the iOS companion to Tether Host for Mac. The host app creates or adopts an isolated macOS VM, installs and verifies Hermes inside that guest, and produces a private Tailscale connection for the phone.
 
-Tether Flow connects to Hermes' application-facing API Server, stores its credential in iOS Keychain, and provides two native surfaces:
+Tether Flow connects to Hermes' application-facing API Server, stores its credential in iOS Keychain, and provides native chat, delegated bot tasks, and mini apps:
 
 - **Chat:** streaming, resumable agent conversations with tool progress, approvals, steering, and stop controls.
+- **Bots:** named assistants with independent provider/model choices and persistent task queues.
 - **Mini Apps:** agent-generated HTML apps rendered in isolated, network-blocked WebKit environments.
+
+The main navigation now includes **Home**, **Chat**, **Bots**, and **Library**. Home collects delegated tasks and results, while Library opens saved mini apps.
+
+### Bot Mode
+
+Create a bot in **Bots → +**, choose its Studio connection, give it a role, and select **Provider & model**. The picker reads authenticated providers from that server, so each bot can use a different provider and model without putting provider credentials on the phone. Leave the choice at **Hermes default** to use the server configuration.
+
+Open the bot and select **Give a task**. Each bot has a dedicated API session and an ordered task queue. Different bots can work concurrently. Tasks preserve their exact instructions, provider, model, and duplicate-protection key before admission; changing a bot applies only to new tasks. Hermes performs accepted work on the Studio after Tether closes. Reopening Tether reconciles results, activity, and approvals. Stop remains pending until Hermes confirms the outcome.
+
+These bots are managed by Tether through the Runs API. They do not import Hermes Desktop profiles or share Desktop's canonical Bot Chat. Bots on the same Hermes profile share that profile's tools, long-term memory policy, and host access; separate API sessions provide conversation context, not a separate security boundary. Use separate Hermes profile connections when profile-level isolation is needed.
+
+Recurring routines, push notifications while Tether is closed, goal tracking, and proactive feed generation are not included. Queued work that Hermes has not accepted waits until Tether can run again. Background delegation depends on the server's run and session support.
 
 ## How it works
 
@@ -22,6 +35,8 @@ Tether Flow connects to Hermes' application-facing API Server, stores its creden
 ## Highlights
 
 - Multiple named LAN or Tailscale connection profiles
+- Per-bot provider/model selection from the server's authenticated model catalog
+- Concurrent bot execution with ordered tasks per bot and task-specific approvals
 - Origin-bound API keys and dashboard sessions stored in Keychain
 - Durable `/v1/runs` execution with idempotent submission and recovery
 - Model and provider discovery with per-conversation selection

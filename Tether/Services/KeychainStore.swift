@@ -2,8 +2,15 @@ import Foundation
 import Security
 
 struct KeychainStore: Sendable {
-    enum Error: Swift.Error {
+    enum Error: LocalizedError {
         case unexpectedStatus(OSStatus)
+
+        var errorDescription: String? {
+            switch self {
+            case let .unexpectedStatus(status):
+                "Keychain error \(status): \(SecCopyErrorMessageString(status, nil) as String? ?? "Unknown status")"
+            }
+        }
     }
 
     private let service = "app.tether.connections"

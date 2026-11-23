@@ -54,14 +54,10 @@ enum MiniAppDocument {
         }
         guard html.utf8.count <= 2_000_000 else { throw Error.tooLarge }
 
-        // Always add the harness policy. Browsers enforce multiple CSPs together, so a
-        // document-provided policy cannot weaken this one.
+        // Put the policy in a trusted prefix before parsing any generated markup.
+        // Searching untrusted HTML for <head> can match comments or script strings,
+        // hiding the policy and permitting requests before it ever takes effect.
         let meta = #"<meta http-equiv="Content-Security-Policy" content="\#(contentSecurityPolicy)">"#
-        if let head = html.range(of: "<head[^>]*>", options: [.regularExpression, .caseInsensitive]) {
-            html.insert(contentsOf: "\n    \(meta)", at: head.upperBound)
-        } else if let opening = html.range(of: "<html[^>]*>", options: [.regularExpression, .caseInsensitive]) {
-            html.insert(contentsOf: "\n<head>\(meta)</head>", at: opening.upperBound)
-        }
-        return html
+        return "<!DOCTYPE html><html><head>\(meta)</head><body>\(html)</body></html>"
     }
 }

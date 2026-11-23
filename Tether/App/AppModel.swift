@@ -18,14 +18,15 @@ struct DebugConnectionBootstrap {
     static func apply(
         to savedConnections: [AgentConnection],
         url rawURL: String,
-        token rawToken: String
+        token rawToken: String,
+        name: String = "Hermes Sandbox"
     ) -> Result? {
         let url = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty, !token.isEmpty else { return nil }
 
         var sandbox = AgentConnection(
-            name: "Hermes Sandbox",
+            name: name,
             baseURL: url,
             route: .tailscale,
             transport: .apiServer
@@ -97,7 +98,8 @@ final class AppModel: ObservableObject {
         let bootstrapURL = environment["TETHER_API_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let bootstrapToken = environment["TETHER_API_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let bootstrap = DebugConnectionBootstrap.apply(
-            to: saved.0, url: bootstrapURL, token: bootstrapToken
+            to: saved.0, url: bootstrapURL, token: bootstrapToken,
+            name: environment["TETHER_CONNECTION_NAME"] ?? "Hermes Sandbox"
         )
         #else
         let bootstrapToken = ""
@@ -111,7 +113,8 @@ final class AppModel: ObservableObject {
             loadConversations(for: selectedConnectionID)
         }
         if let bootstrap {
-            try? store.saveCredential(bootstrapToken, for: bootstrap.credentialConnection)
+            do { try store.saveCredential(bootstrapToken, for: bootstrap.credentialConnection) }
+            catch { alertMessage = "Couldn’t import the Studio credential into Keychain: \(error.localizedDescription)" }
             persist()
         }
         networkMonitor.pathUpdateHandler = { [weak self] path in
@@ -182,14 +185,28 @@ final class AppModel: ObservableObject {
     func apiKey(for connection: AgentConnection) -> String { store.credential(for: connection) }
 
     func remove(_ connection: AgentConnection) {
+        let wasSelected = selectedConnectionID == connection.id
+        if wasSelected { detachFromRun() }
         connections.removeAll { $0.id == connection.id }
         store.removeCredentials(for: connection.id)
         store.removeDashboardTokens(for: connection.id)
         store.removeChat(for: connection.id)
-        if selectedConnectionID == connection.id { selectedConnectionID = connections.first?.id }
-        if let selectedConnectionID { loadConversations(for: selectedConnectionID) }
-        else { conversations = []; selectedConversationID = nil; messages = [] }
+        if wasSelected {
+            selectedConnectionID = connections.first?.id
+            if let selectedConnectionID { loadConversations(for: selectedConnectionID) }
+            else { conversations = []; selectedConversationID = nil; messages = [] }
+            connectionState = .idle
+            Task { await checkSelectedConnection() }
+        }
         persist()
+        if miniAppJob?.connectionID == connection.id {
+            miniAppTask?.cancel()
+            miniAppJob?.failureMessage = "The original connection was removed. The remote build may still be running. You can discard its saved checkpoint locally."
+            persistMiniAppJob()
+            miniAppBuildStatus = miniAppJob?.failureMessage ?? ""
+            miniAppApproval = nil
+            isBuildingMiniApp = false
+        }
     }
 
     func select(_ connection: AgentConnection) {
@@ -333,21 +350,18 @@ final class AppModel: ObservableObject {
     }
 
     func stop() {
-        let runID = selectedConversation?.pendingRun?.runID
-        let connection = selectedConnection
+        guard var pending = selectedConversation?.pendingRun, let connection = selectedConnection else { return }
+        pending.stopRequested = true
+        updatePending(pending)
         responseTask?.cancel()
         responseTask = nil
-        isResponding = false
         pendingApproval = nil
-        if let selectedConversationID,
-           let index = conversations.firstIndex(where: { $0.id == selectedConversationID }) {
-            conversations[index].pendingRun = nil
+        if pending.runID == nil && pending.firstSubmissionAt == nil {
+            cancelPending(pending)
+        } else {
+            // Keep the checkpoint until Hermes confirms a terminal state.
+            startPendingRun(connection: connection)
         }
-        if let runID, let connection {
-            Task { try? await HermesAPIClient(connection: connection, apiKey: apiKey(for: connection)).stopRun(runID) }
-        }
-        saveCurrentChat()
-        endBackgroundTask()
     }
 
     func clearChat() {
@@ -419,8 +433,14 @@ final class AppModel: ObservableObject {
     }
 
     func resumeMiniAppBuild() {
-        guard miniAppTask == nil, let job = miniAppJob,
-              let connection = connections.first(where: { $0.id == job.connectionID }) else { return }
+        guard miniAppTask == nil, let job = miniAppJob else { return }
+        guard let connection = connections.first(where: { $0.id == job.connectionID }) else {
+            miniAppJob?.failureMessage = "The original connection is missing. The remote build may still be running. You can discard the saved checkpoint locally."
+            persistMiniAppJob()
+            miniAppBuildStatus = miniAppJob?.failureMessage ?? ""
+            isBuildingMiniApp = false
+            return
+        }
         if let failure = job.failureMessage {
             miniAppBuildStatus = failure
             isBuildingMiniApp = false
@@ -447,6 +467,7 @@ final class AppModel: ObservableObject {
                     }
                     guard let runID = current.runID else { return }
                     let status = try await client.runStatus(runID)
+                    try Task.checkCancellation()
                     if let approval = status.approval {
                         self.miniAppApproval = RunApproval(runID: runID, command: approval.command ?? "Permission required", choices: approval.choices ?? ["deny"], requestID: approval.requestID)
                         self.miniAppBuildStatus = "Permission required to continue"
@@ -557,9 +578,10 @@ final class AppModel: ObservableObject {
 
     private func startPendingRun(connection: AgentConnection) {
         guard responseTask == nil, selectedConversation?.pendingRun != nil else { return }
+        let conversationID = selectedConversationID
         isResponding = true
         responseTask = Task { [weak self] in
-            guard let self else { return }
+            guard let self, !Task.isCancelled, self.selectedConversationID == conversationID else { return }
             await self.observePendingRun(connection: connection)
             if !Task.isCancelled {
                 self.responseTask = nil
@@ -591,8 +613,17 @@ final class AppModel: ObservableObject {
         let attachedToExistingRun = pending.runID != nil
         if pending.runID == nil {
             do {
-                try await client.requireDurableRuns()
+                let retention = try await client.requireDurableRuns()
                 try Task.checkCancellation()
+                if let submitted = pending.firstSubmissionAt,
+                   Date().timeIntervalSince(submitted) >= (pending.retentionSeconds ?? 0) {
+                    throw HermesAPIClient.ClientError.durableRunsUnavailable("the saved request's duplicate-protection window expired; check the original task on Hermes")
+                }
+                if pending.firstSubmissionAt == nil {
+                    pending.firstSubmissionAt = .now
+                    pending.retentionSeconds = retention
+                    updatePending(pending)
+                }
                 let submission = try await client.createRun(
                     input: pending.input,
                     sessionID: conversationID.uuidString.lowercased(),
@@ -619,15 +650,17 @@ final class AppModel: ObservableObject {
         }
         guard let runID = pending.runID else { return }
 
-        do {
-            for try await event in client.runEvents(runID) {
-                if Task.isCancelled { return }
-                if apply(event: event, to: pending, acceptDeltas: !attachedToExistingRun) { return }
+        if pending.stopRequested != true {
+            do {
+                for try await event in client.runEvents(runID) {
+                    if Task.isCancelled { return }
+                    if apply(event: event, to: pending, acceptDeltas: !attachedToExistingRun) { return }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                // The server-side run survives a broken event stream. Reconcile by polling below.
             }
-        } catch is CancellationError {
-            return
-        } catch {
-            // The server-side run survives a broken event stream. Reconcile by polling below.
         }
 
         var delay = 1.0
@@ -655,6 +688,7 @@ final class AppModel: ObservableObject {
                     cancelPending(pending)
                     return
                 default:
+                    if pending.stopRequested == true { try await client.stopRun(runID) }
                     pending.state = .running
                     updatePending(pending)
                 }
@@ -709,14 +743,15 @@ final class AppModel: ObservableObject {
             let inputMessage = ChatMessage(role: .user, content: pending.input)
             var output = ""
             for try await piece in client.stream(messages: pending.conversationHistory + [inputMessage]) {
+                if Task.isCancelled { return }
                 output += piece
                 setAssistant(pending.assistantMessageID, content: output)
             }
-            completePending(pending, output: output)
+            if !Task.isCancelled { completePending(pending, output: output) }
         } catch is CancellationError {
             return
         } catch {
-            markWaitingForNetwork()
+            if !Task.isCancelled { markWaitingForNetwork() }
         }
     }
 
@@ -895,6 +930,7 @@ final class AppModel: ObservableObject {
         responseTask?.cancel()
         responseTask = nil
         isResponding = false
+        pendingApproval = nil
         saveCurrentChat()
     }
 
@@ -905,12 +941,17 @@ final class AppModel: ObservableObject {
     }
 
     func resolveApproval(_ choice: String) {
-        guard let approval = pendingApproval, let connection = selectedConnection else { return }
+        guard let approval = pendingApproval, approval.choices.contains(choice),
+              approval.runID == selectedConversation?.pendingRun?.runID,
+              let connection = selectedConnection else { return }
+        let conversationID = selectedConversationID
         Task {
             do {
                 try await HermesAPIClient(connection: connection, apiKey: apiKey(for: connection))
                     .resolveApproval(approval.runID, choice: choice, requestID: approval.requestID)
-                pendingApproval = nil
+                if selectedConnectionID == connection.id, selectedConversationID == conversationID, pendingApproval == approval {
+                    pendingApproval = nil
+                }
             } catch {
                 alertMessage = "Couldn’t send the approval: \(error.localizedDescription)"
             }
