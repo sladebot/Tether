@@ -87,7 +87,7 @@ struct MiniAppsView: View {
     }
 
     @ViewBuilder private var recoveryActions: some View {
-        Button("Connections") { showingConnections = true }
+        Button("Providers") { showingConnections = true }
         Button("Discard saved build", role: .destructive) { confirmingDiscard = true }
     }
 
@@ -106,7 +106,7 @@ struct MiniAppsView: View {
             Text("Describe a small tool and your Hermes agent will build it as an isolated HTML app.")
         } actions: {
             if model.selectedConnection == nil {
-                Button("Set Up Hermes") { showingConnections = true }.buttonStyle(TetherPrimaryButtonStyle())
+                Button("Add provider") { showingConnections = true }.buttonStyle(TetherPrimaryButtonStyle())
             } else {
                 Button("Build a Mini App") { showingBuilder = true }.buttonStyle(TetherPrimaryButtonStyle())
                     .disabled(model.hasSavedMiniAppBuild)
@@ -136,9 +136,9 @@ private struct MiniAppBuilderView: View {
                 NavigationLink {
                     StudioModelPicker(choices: model.modelChoices, selected: modelChoice) { modelChoice = $0 }
                 } label: {
-                    LabeledContent("Studio model", value: modelChoice?.model ?? "Hermes default")
+                    LabeledContent("Model", value: modelChoice?.model ?? "Hermes default")
                 }
-            } footer: { Text("Generated on your Studio through Hermes. Choose from the models available on that server.") }
+            } footer: { Text("Generated through Hermes using a model available on your server.") }
             Section {
                 Button {
                     submitting = true

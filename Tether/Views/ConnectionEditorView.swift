@@ -7,6 +7,7 @@ struct ConnectionEditorView: View {
     @FocusState private var inputFocused: Bool
     private let existing: AgentConnection?
     private let draftID: UUID
+    private let onSaved: (() -> Void)?
 
     @State private var name: String
     @State private var address: String
@@ -23,12 +24,13 @@ struct ConnectionEditorView: View {
     @State private var testedAt: Date?
     @State private var testTask: Task<Void, Never>?
 
-    init(connection: AgentConnection? = nil, apiKey: String = "") {
+    init(connection: AgentConnection? = nil, apiKey: String = "", onSaved: (() -> Void)? = nil) {
+        self.onSaved = onSaved
         existing = connection
         draftID = connection?.id ?? UUID()
-        _name = State(initialValue: connection?.name ?? "")
+        _name = State(initialValue: connection?.name ?? "Hermes")
         _address = State(initialValue: connection?.baseURL ?? "")
-        _route = State(initialValue: connection?.route ?? .local)
+        _route = State(initialValue: connection?.route ?? .tailscale)
         _transport = State(initialValue: connection?.transport ?? .apiServer)
         _username = State(initialValue: connection?.username ?? "admin")
         _apiKey = State(initialValue: apiKey)
@@ -40,39 +42,14 @@ struct ConnectionEditorView: View {
         let candidate = AgentConnection(id: draftID, name: name, baseURL: address, route: route, transport: transport, username: transport == .dashboard ? username : nil, modelName: detectedModel)
         var result = candidate
         result.baseURL = candidate.normalizedBaseURL?.absoluteString ?? address
-        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { result.name = candidate.normalizedBaseURL?.host ?? "Hermes" }
+        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { result.name = "Hermes" }
         return result
     }
 
     var body: some View {
         Form {
-            Section("Connection") {
-                Picker("Connect over", selection: $route) {
-                    ForEach(AgentConnection.Route.allCases) { route in
-                        Label(route.rawValue, systemImage: route.symbol).tag(route)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Server URL").font(.subheadline.weight(.medium))
-                    TextField(addressPlaceholder, text: $address, axis: .vertical)
-                        .textInputAutocapitalization(.never).keyboardType(.URL).autocorrectionDisabled()
-                        .focused($inputFocused)
-                        .accessibilityIdentifier("connection.url")
-                    Text(route == .tailscale ? "Paste your Tailscale URL or hostname. HTTPS is added automatically. Include a port only if your server uses one." : "Enter the full local URL, including http:// and the server port.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                if transport == .dashboard {
-                    TextField("Dashboard username", text: $username)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    SecureField("Password (initial sign-in)", text: $apiKey)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                } else {
-                    SecureField("Hermes API key", text: $apiKey)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .focused($inputFocused)
-                }
-                TextField("Connection name (optional)", text: $name)
-            }
+            providerIntroduction
+            connectionFields
             if let validationMessage {
                 Section { Text(validationMessage).font(.footnote).foregroundStyle(.secondary) }
             }
@@ -84,73 +61,21 @@ struct ConnectionEditorView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
-            Section {
-                Button {
-                    runTest()
-                } label: {
-                    HStack {
-                        Text("Test connection")
-                        Spacer()
-                        if testing { ProgressView() }
-                    }
-                }
-                .disabled(draft.normalizedBaseURL == nil || (transport == .apiServer && apiKey.isEmpty) || testing)
-                if testing {
-                    Text("Checking address, authentication and model access…").font(.footnote).foregroundStyle(.secondary)
-                    Button("Cancel test") { resetTest() }
-                }
-                if let testResult {
-                    Label(testSucceeded ? "Ready to connect" : "Connection needs attention", systemImage: testSucceeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(testSucceeded ? .green : .orange)
-                    Text(testResult).font(.footnote).textSelection(.enabled)
-                }
-                if let testedAt {
-                    LabeledContent("Last tested") { Text(testedAt, style: .time) }
-                }
-                if let detectedModel {
-                    LabeledContent("Model", value: detectedModel)
-                }
-                if route == .tailscale, !draft.usesTailscaleHTTPS, draft.normalizedBaseURL != nil {
-                    Label("Use a Tailscale Serve HTTPS URL to protect Hermes credentials in transit.", systemImage: "lock.trianglebadge.exclamationmark")
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
-                }
-            }
-            Section {
-                DisclosureGroup("Advanced & connection details") {
-                    if transport == .apiServer {
-                        NavigationLink("Hermes feature availability") {
-                            HermesFeatureReportView(connection: draft, apiKey: apiKey)
-                        }
-                        .disabled(validationMessage != nil || credentialOrigin != draft.normalizedBaseURL)
-                    }
-                    Picker("Protocol", selection: $transport) {
-                        ForEach(AgentConnection.Transport.allCases) { Text($0.title).tag($0) }
-                    }
-                    if let url = draft.normalizedBaseURL {
-                        Text("Read-only details from your URL").font(.caption).foregroundStyle(.secondary)
-                        LabeledContent("Host", value: url.host ?? "—")
-                        LabeledContent("Port", value: String(url.port ?? (url.scheme == "https" ? 443 : 80)))
-                        LabeledContent("Security", value: url.scheme == "https" ? "HTTPS" : "HTTP · no TLS")
-                    } else {
-                        Text("Enter a valid URL to see its connection details.").font(.footnote).foregroundStyle(.secondary)
-                    }
-                    Text(connectionHelp).font(.footnote).foregroundStyle(.secondary)
-                    Text("Testing checks API access, not a generated reply. Credentials are never included in results.").font(.footnote).foregroundStyle(.secondary)
-                }
-            }
+            verificationSection
+            botAccessSection
+            advancedSection
         }
         .scrollDismissesKeyboard(.interactively)
-        .navigationTitle(existing == nil ? "Add connection" : "Edit connection")
+        .navigationTitle(existing == nil ? "Add Hermes" : "Hermes settings")
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             Button {
                 guard credentialOrigin == draft.normalizedBaseURL else { updateCredentialOrigin(); return }
                 inputFocused = false
                 model.upsert(draft, apiKey: apiKey)
-                dismiss()
+                if let onSaved { onSaved() } else { dismiss() }
             } label: {
-                Text("Apply & connect").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 16)
+                Text(existing == nil ? "Add Hermes" : "Save provider").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 16)
                     .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
                     .background(colorScheme == .dark ? Color.white : Color.black, in: RoundedRectangle(cornerRadius: 18))
             }
@@ -175,9 +100,115 @@ struct ConnectionEditorView: View {
         }
     }
 
+    private var providerIntroduction: some View {
+        Section {
+            Label("Hermes", systemImage: "sparkles").font(.headline)
+            Text("Connect to your Hermes server. Models and agent work run there.")
+                .font(.subheadline).foregroundStyle(.secondary)
+        }
+    }
+
+    private var connectionFields: some View {
+        Section("Connection") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Tailscale URL").font(.subheadline.weight(.medium))
+                TextField(addressPlaceholder, text: $address, axis: .vertical)
+                    .textInputAutocapitalization(.never).keyboardType(.URL).autocorrectionDisabled()
+                    .focused($inputFocused)
+                    .accessibilityIdentifier("connection.url")
+                Text(route == .tailscale ? "Paste your Tailscale URL or hostname. HTTPS is added automatically. Include a port only if your server uses one." : "Enter the full local URL, including http:// and the server port.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if transport == .dashboard {
+                TextField("Dashboard username", text: $username)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                SecureField("Password (initial sign-in)", text: $apiKey)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+            } else {
+                SecureField("API token", text: $apiKey)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .focused($inputFocused)
+            }
+            TextField("Name (optional)", text: $name)
+        }
+    }
+
+    private var verificationSection: some View {
+        Section {
+            Button {
+                runTest()
+            } label: {
+                HStack {
+                    Text("Test connection")
+                    Spacer()
+                    if testing { ProgressView() }
+                }
+            }
+            .disabled(validationMessage != nil || testing)
+            if testing {
+                Text("Checking address, authentication and model access…").font(.footnote).foregroundStyle(.secondary)
+                Button("Cancel test") { resetTest() }
+            }
+            if let testResult {
+                Label(testSucceeded ? "Ready to connect" : "Connection needs attention", systemImage: testSucceeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(testSucceeded ? .green : .orange)
+                Text(testResult).font(.footnote).textSelection(.enabled)
+            }
+            if let testedAt {
+                LabeledContent("Last tested") { Text(testedAt, style: .time) }
+            }
+            if let detectedModel {
+                LabeledContent("Model", value: detectedModel)
+            }
+            if route == .tailscale, !draft.usesTailscaleHTTPS, draft.normalizedBaseURL != nil {
+                Label("Use a Tailscale Serve HTTPS URL to protect Hermes credentials in transit.", systemImage: "lock.trianglebadge.exclamationmark")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    @ViewBuilder private var botAccessSection: some View {
+        if existing?.id == model.selectedConnectionID && existing != nil {
+            Section {
+                NavigationLink { StudioGatewaySetupView() } label: { Label("Bot access", systemImage: "person.2") }
+            } footer: { Text("Configured bots use your Hermes dashboard sign-in. Your API token powers chat and mini apps.") }
+        }
+    }
+
+    private var advancedSection: some View {
+        Section {
+            DisclosureGroup("Advanced & connection details") {
+                if transport == .apiServer {
+                    NavigationLink("Hermes feature availability") {
+                        HermesFeatureReportView(connection: draft, apiKey: apiKey)
+                    }
+                    .disabled(validationMessage != nil || credentialOrigin != draft.normalizedBaseURL)
+                }
+                LabeledContent("Provider", value: "Hermes")
+                LabeledContent("Connect over", value: route.rawValue)
+                LabeledContent("Protocol", value: transport.title)
+                if let url = draft.normalizedBaseURL {
+                    Text("Read-only details from your URL").font(.caption).foregroundStyle(.secondary)
+                    LabeledContent("Host", value: url.host ?? "—")
+                    LabeledContent("Port", value: String(url.port ?? (url.scheme == "https" ? 443 : 80)))
+                    LabeledContent("Security", value: url.scheme == "https" ? "HTTPS" : "HTTP · no TLS")
+                } else {
+                    Text("Enter a valid URL to see its connection details.").font(.footnote).foregroundStyle(.secondary)
+                }
+                Text(connectionHelp).font(.footnote).foregroundStyle(.secondary)
+                Text("Testing checks API access, not a generated reply. Credentials are never included in results.").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var validationMessage: String? {
         if address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "Add your server URL to get started." }
         if draft.normalizedBaseURL == nil { return "Enter a valid server address. Don’t include a password or token in the URL." }
+        if route == .tailscale, let url = draft.normalizedBaseURL,
+           url.scheme != "https" || url.host?.hasSuffix(".ts.net") != true {
+            return "Use your Tailscale HTTPS hostname ending in .ts.net."
+        }
         if transport == .apiServer && apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "Add your Hermes API token to test or connect." }
         return nil
     }
@@ -212,7 +243,7 @@ struct ConnectionEditorView: View {
                 guard !Task.isCancelled else { return }
                 detectedModel = result
                 testSucceeded = true
-                testResult = "Server reachable · Authentication accepted · Model access verified\nCompleted in \(String(format: "%.1f", Date().timeIntervalSince(start))) seconds."
+                testResult = "Server reachable · Authentication accepted · Model catalog available\nCompleted in \(String(format: "%.1f", Date().timeIntervalSince(start))) seconds."
             } catch {
                 guard !Task.isCancelled else { return }
                 testSucceeded = false

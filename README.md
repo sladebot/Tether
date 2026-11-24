@@ -2,9 +2,11 @@
 
 Native iPhone chat, Hermes bots, and mini apps connected to your Mac Studio over Tailscale. All agent and model execution happens in Hermes on that Mac, including its local oMLX model and any providers configured in Hermes. There are no independent OpenAI or Claude account connectors and no phone-created bot catalog.
 
-## Connections
+## Providers
 
-The current Studio exposes two services on its private tailnet:
+Open **Providers → Add provider → Hermes**, enter your Tailscale URL and API token, then save. Hermes is the only connector currently available. Each saved provider has its own server identity and conversations; models offered inside Hermes are still discovered from that server.
+
+The current Mac Studio exposes two Hermes services on its private tailnet:
 
 | Purpose | Endpoint | Authentication |
 | --- | --- | --- |
@@ -31,8 +33,8 @@ Mini-app HTML executes in an isolated, nonpersistent WebKit preview on the iPhon
 1. Open `Tether.xcodeproj` in Xcode 26 or newer and select the `Tether` scheme.
 2. Build for an iPhone running iOS 18 or newer. The bundle identifier is `app.tetherflow.ios`.
 3. Join the same tailnet on the iPhone.
-4. Add a **Hermes API Server** connection using the Studio’s Tailscale HTTPS URL and current API key. Test and save the connection.
-5. In **Bots → Gateway settings**, sign in using the Mac Studio’s Hermes dashboard credentials. The API key and dashboard password serve different purposes.
+4. Open **Providers → Add provider → Hermes**, enter the Studio’s Tailscale HTTPS URL and current API token, then test and save.
+5. In **Providers → Provider settings → Bot access**, sign in using the Mac Studio’s Hermes dashboard credentials. The API key and dashboard password serve different purposes.
 
 For Debug builds, `TETHER_API_URL` and `TETHER_API_TOKEN` import an API connection into Keychain without replacing existing profiles. Release builds ignore these launch variables. `scripts/phone/launch-tether-studio.py` can fetch the current Studio key over existing authorized SSH and launch an installed build without printing the key.
 

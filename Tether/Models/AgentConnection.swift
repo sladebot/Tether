@@ -1,6 +1,13 @@
 import Foundation
 
 struct AgentConnection: Identifiable, Codable, Hashable, Sendable {
+    enum ProviderKind: String, CaseIterable, Identifiable, Codable, Sendable {
+        case hermes
+        var id: Self { self }
+        var title: String { switch self { case .hermes: "Hermes" } }
+        var symbol: String { switch self { case .hermes: "sparkles" } }
+    }
+
     enum Transport: CaseIterable, Identifiable, Sendable, Codable {
         case apiServer
         case dashboard
@@ -57,8 +64,9 @@ struct AgentConnection: Identifiable, Codable, Hashable, Sendable {
     var transport: Transport
     var username: String?
     var modelName: String?
+    var providerKind: ProviderKind
 
-    init(id: UUID = UUID(), name: String, baseURL: String, route: Route, transport: Transport = .apiServer, username: String? = nil, modelName: String? = nil) {
+    init(id: UUID = UUID(), name: String, baseURL: String, route: Route, transport: Transport = .apiServer, username: String? = nil, modelName: String? = nil, providerKind: ProviderKind = .hermes) {
         self.id = id
         self.name = name
         self.baseURL = baseURL
@@ -66,9 +74,10 @@ struct AgentConnection: Identifiable, Codable, Hashable, Sendable {
         self.transport = transport
         self.username = username
         self.modelName = modelName
+        self.providerKind = providerKind
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, baseURL, route, transport, username, modelName }
+    private enum CodingKeys: String, CodingKey { case id, name, baseURL, route, transport, username, modelName, providerKind }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -78,6 +87,7 @@ struct AgentConnection: Identifiable, Codable, Hashable, Sendable {
         route = try values.decode(Route.self, forKey: .route)
         username = try values.decodeIfPresent(String.self, forKey: .username)
         modelName = try values.decodeIfPresent(String.self, forKey: .modelName)
+        providerKind = try values.decodeIfPresent(ProviderKind.self, forKey: .providerKind) ?? .hermes
         if let saved = try values.decodeIfPresent(Transport.self, forKey: .transport) {
             transport = saved
         } else {

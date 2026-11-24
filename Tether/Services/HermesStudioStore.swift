@@ -8,7 +8,7 @@ struct StudioGatewayConfiguration: Codable, Equatable {
     var url: String
     var username: String
     var connection: AgentConnection {
-        AgentConnection(id: id, name: "Studio bots", baseURL: url, route: .tailscale, transport: .dashboard, username: username)
+        AgentConnection(id: id, name: "Hermes bots", baseURL: url, route: .tailscale, transport: .dashboard, username: username)
     }
     var isValid: Bool {
         guard let base = connection.normalizedBaseURL else { return false }
@@ -26,7 +26,7 @@ struct StudioProfile: Identifiable, Decodable, Equatable {
     var id: String { name }
     var title: String { displayName.flatMap { $0.isEmpty ? nil : $0 } ?? name }
     var modelLabel: String {
-        guard let model, !model.isEmpty else { return "Uses Studio’s configured model" }
+        guard let model, !model.isEmpty else { return "Uses the Hermes default model" }
         return [provider, model].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
     struct Session: Decodable, Equatable {
@@ -84,8 +84,8 @@ enum StudioGatewayError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .response(message): message
-        case .invalidConnection: "Use your Studio’s Tailscale HTTPS gateway URL."
-        case .notSignedIn: "Sign in to the Studio gateway to open its bot conversations and model settings."
+        case .invalidConnection: "Use your Hermes Tailscale HTTPS gateway URL."
+        case .notSignedIn: "Sign in to Hermes to open its bot conversations and model settings."
         }
     }
 }
@@ -110,7 +110,7 @@ actor HermesStudioClient {
     func publicProfiles() async throws -> [StudioProfile] {
         guard configuration.isValid, let url = configuration.connection.endpoint("api/status") else { throw StudioGatewayError.invalidConnection }
         let (data, response) = try await session.data(from: url)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw StudioGatewayError.response("The Studio gateway is unreachable.") }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw StudioGatewayError.response("The Hermes gateway is unreachable.") }
         struct Status: Decodable { let profiles: [String] }
         return try JSONDecoder().decode(Status.self, from: data).profiles.map(StudioProfile.init)
     }
@@ -294,7 +294,7 @@ final class HermesStudioStore: ObservableObject {
             let snapshot = try await client.request("session.resume", params: ["profile": .string(profile.name), "session_id": .string(sessionID)])
             guard identity == configuration?.id, self.sessionID == sessionID, selectedProfile == profile.name else { return }
             apply(snapshot)
-        } catch { self.error = "Couldn’t refresh the Studio conversation: \(error.localizedDescription)" }
+        } catch { self.error = "Couldn’t refresh the Hermes conversation: \(error.localizedDescription)" }
     }
     private func inputKey(_ profile: String) -> String? {
         configuration.map { "studio.input.\($0.id).\(profile)" }
@@ -344,7 +344,7 @@ final class HermesStudioStore: ObservableObject {
         var params: [String: GatewayValue] = ["profile": .string(profile.name), "session_id": .string(sessionID)]
         if let generation { params["execution_generation"] = .number(generation) }
         do { _ = try await client.request("session.interrupt", params: params); await poll(profile) }
-        catch { self.error = "Couldn’t confirm stopping the Studio task. \(error.localizedDescription)" }
+        catch { self.error = "Couldn’t confirm stopping the Hermes task. \(error.localizedDescription)" }
     }
     func approve(_ approval: GatewayValue, choice: String, profile: StudioProfile) async {
         guard let client, let sessionID, selectedProfile == profile.name,

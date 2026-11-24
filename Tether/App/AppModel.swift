@@ -114,7 +114,7 @@ final class AppModel: ObservableObject {
         }
         if let bootstrap {
             do { try store.saveCredential(bootstrapToken, for: bootstrap.credentialConnection) }
-            catch { alertMessage = "Couldn’t import the Studio credential into Keychain: \(error.localizedDescription)" }
+            catch { alertMessage = "Couldn’t import the Hermes credential into Keychain: \(error.localizedDescription)" }
             persist()
         }
         networkMonitor.pathUpdateHandler = { [weak self] path in
@@ -461,7 +461,7 @@ final class AppModel: ObservableObject {
                         let retention = try await client.requireDurableRuns()
                         if let first = current.firstSubmissionAt,
                            Date().timeIntervalSince(first) >= (current.retentionSeconds ?? 0) {
-                            throw HermesAPIClient.ClientError.durableRunsUnavailable("this build’s duplicate-protection window expired; check the original task on Studio")
+                            throw HermesAPIClient.ClientError.durableRunsUnavailable("this build’s duplicate-protection window expired; check the original task in Hermes")
                         }
                         if current.firstSubmissionAt == nil {
                             current.firstSubmissionAt = .now
@@ -497,7 +497,7 @@ final class AppModel: ObservableObject {
                         return
                     }
                     if ["failed", "cancelled", "interrupted"].contains(status.status) {
-                        let message = status.error ?? status.output.flatMap { $0.isEmpty ? nil : $0 } ?? "Build \(status.status). Check the Studio before starting another build."
+                        let message = status.error ?? status.output.flatMap { $0.isEmpty ? nil : $0 } ?? "Build \(status.status). Check Hermes before starting another build."
                         current.failureMessage = message
                         self.miniAppBuildStatus = message
                         self.miniAppJob = current
@@ -506,7 +506,7 @@ final class AppModel: ObservableObject {
                         return
                     }
                     if status.status == "unknown" {
-                        current.failureMessage = "Hermes restarted with an unknown build outcome. Resolve the original task on Studio before retrying."
+                        current.failureMessage = "Hermes restarted with an unknown build outcome. Resolve the original task in Hermes before retrying."
                         self.miniAppJob = current
                         self.persistMiniAppJob()
                         self.miniAppBuildStatus = current.failureMessage ?? ""

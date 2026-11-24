@@ -586,6 +586,17 @@ final class TetherTests: XCTestCase {
         XCTAssertEqual(decoded, original)
     }
 
+    func testLegacyConnectionMigratesToHermesProviderWithoutChangingServerIdentity() throws {
+        let id = UUID()
+        let json = "{\"id\":\"\(id)\",\"name\":\"My server\",\"baseURL\":\"https://studio.example.ts.net\",\"route\":\"Tailscale\",\"transport\":\"apiServer\"}"
+        let connection = try JSONDecoder().decode(AgentConnection.self, from: Data(json.utf8))
+        XCTAssertEqual(connection.providerKind, .hermes)
+        XCTAssertEqual(connection.id, id)
+        XCTAssertEqual(connection.name, "My server")
+        XCTAssertEqual(connection.normalizedBaseURL?.absoluteString, "https://studio.example.ts.net")
+        XCTAssertEqual(try JSONDecoder().decode(AgentConnection.self, from: JSONEncoder().encode(connection)), connection)
+    }
+
     func testLegacyPort9119ConnectionMigratesToDashboardTransport() throws {
         let id = UUID()
         let legacy = #"{"id":"\#(id.uuidString)","name":"Hermes","baseURL":"http://127.0.0.1:9119","route":"Local network"}"#.data(using: .utf8)!

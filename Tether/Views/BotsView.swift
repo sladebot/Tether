@@ -19,15 +19,15 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Your Studio.\nWithin reach.").font(.system(.largeTitle, design: .rounded, weight: .semibold))
-                        Text("Conversations, specialist bots, and small tools — powered by your Hermes.")
+                        Text("Your agents.\nWithin reach.").font(.system(.largeTitle, design: .rounded, weight: .semibold))
+                        Text("Chat, delegate work, and build small tools.")
                             .font(.body).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }.padding(.top, 12)
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Image(systemName: "desktopcomputer").font(.title2).foregroundStyle(TetherTheme.accent)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(model.selectedConnection?.name ?? "Connect your Studio").font(.headline)
+                                Text(model.selectedConnection?.providerKind.title ?? "Add a provider").font(.headline)
                                 Text(model.selectedConnection?.normalizedBaseURL?.host ?? "Hermes over Tailscale")
                                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                             }
@@ -37,22 +37,22 @@ struct HomeView: View {
                         }
                         Divider()
                         Button { connections = true } label: {
-                            HStack { Text(model.selectedConnection == nil ? "Set up connection" : "Manage connection"); Spacer(); Image(systemName: "arrow.up.right") }
+                            HStack { Text(model.selectedConnection == nil ? "Add provider" : "Manage providers"); Spacer(); Image(systemName: "arrow.up.right") }
                                 .font(.subheadline).frame(minHeight: 32)
                         }
                     }.padding(20).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
                     VStack(spacing: 12) {
                         destination("Chat with Hermes", subtitle: "Ask, plan, and get things done", icon: "bubble.left.and.bubble.right", target: .chat)
-                        destination("Hermes bots", subtitle: studio.profiles.isEmpty ? "Open the bots configured on your Studio" : "\(studio.profiles.count) profiles reported by your Studio", icon: "person.2", target: .bots)
+                        destination("Hermes bots", subtitle: studio.profiles.isEmpty ? "Open your Hermes profiles" : "\(studio.profiles.count) profiles from Hermes", icon: "person.2", target: .bots)
                         destination("Mini apps", subtitle: model.miniApps.isEmpty ? "Build a useful tool from an idea" : "\(model.miniApps.count) saved \(model.miniApps.count == 1 ? "tool" : "tools") in your library", icon: "square.grid.2x2", target: .library)
                     }
-                    Label("Agent and model work stays on your Studio", systemImage: "network.badge.shield.half.filled")
+                    Label("Agent and model work runs through Hermes", systemImage: "network.badge.shield.half.filled")
                         .font(.footnote).foregroundStyle(.secondary).padding(.bottom, 12)
                 }.padding(24)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Tether").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Connections", systemImage: "slider.horizontal.3") { connections = true }.labelStyle(.iconOnly) } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Providers", systemImage: "slider.horizontal.3") { connections = true }.labelStyle(.iconOnly) } }
             .sheet(isPresented: $connections) { NavigationStack { ConnectionListView() } }
         }
     }
@@ -86,8 +86,8 @@ struct BotsView: View {
                     HStack(spacing: 12) {
                         Image(systemName: "desktopcomputer").foregroundStyle(TetherTheme.accent)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Hermes on Mac Studio").font(.headline)
-                            Text("Live profiles · via Tailscale").font(.caption).foregroundStyle(.secondary)
+                            Text("Hermes").font(.headline)
+                            Text("Live Hermes profiles").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         if studio.loading { ProgressView() }
@@ -95,14 +95,14 @@ struct BotsView: View {
                     if !studio.authenticated {
                         Button("Sign in to Hermes", systemImage: "lock.open") { setup = true }
                             .disabled(studio.configuration == nil)
-                        Text("Your Mac Studio reports these Hermes profiles. Sign in with your Hermes dashboard account to open their conversations and model settings.")
+                        Text("Sign in with your Hermes dashboard account to open these profiles’ conversations and model settings.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
                 if let error = studio.error {
                     Section { Label(error, systemImage: "exclamationmark.triangle").font(.footnote); Button("Retry") { Task { await studio.refresh() } } }
                 }
-                Section("On your Mac Studio") {
+                Section("Hermes profiles") {
                     ForEach(studio.profiles.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || $0.name.localizedCaseInsensitiveContains(search) }) { profile in
                         NavigationLink { StudioBotView(profile: profile) } label: {
                             HStack(spacing: 14) {
@@ -117,20 +117,20 @@ struct BotsView: View {
                         }.disabled(!studio.authenticated)
                     }
                     if studio.profiles.isEmpty && !studio.loading {
-                        Text("No profiles loaded. Check your Studio connection and gateway sign-in.").font(.subheadline).foregroundStyle(.secondary)
+                        Text("No profiles loaded. Check your Hermes provider and bot sign-in.").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
                 Section {
-                    Text("This roster comes from Hermes on your Studio. Bots created here become real Hermes profiles, with their own model, tools, and conversation history.")
+                    Text("These profiles come from Hermes. Each bot has its own model, tools, and conversation history on your server.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Hermes bots")
-            .searchable(text: $search, prompt: "Find a Studio bot")
+            .searchable(text: $search, prompt: "Find a Hermes bot")
             .refreshable { await studio.refresh() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Gateway settings", systemImage: "slider.horizontal.3") { setup = true }.labelStyle(.iconOnly) }
-                ToolbarItem(placement: .topBarTrailing) { Button("Create on Studio", systemImage: "plus") { creating = true }.disabled(!studio.authenticated) }
+                ToolbarItem(placement: .topBarTrailing) { Button("Create bot", systemImage: "plus") { creating = true }.disabled(!studio.authenticated) }
             }
             .sheet(isPresented: $setup) { NavigationStack { StudioGatewaySetupView() } }
             .sheet(isPresented: $creating) { NavigationStack { StudioBotCreateView() } }
@@ -149,8 +149,8 @@ struct StudioGatewaySetupView: View {
     var body: some View {
         Form {
             Section {
-                Label("Hermes on your Mac Studio", systemImage: "desktopcomputer").font(.headline)
-                Text("Use your Mac Studio’s Hermes dashboard account to access its bots. Chat and mini apps already use your Hermes API connection over Tailscale.")
+                Label("Hermes bot access", systemImage: "desktopcomputer").font(.headline)
+                Text("Use your Hermes dashboard account to access its configured bots. Chat and mini apps use your provider’s API token.")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             Section("Hermes gateway · Tailscale") {
@@ -219,7 +219,7 @@ struct StudioBotView: View {
                         }.padding(18).background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
                     }
                     if studio.messages.isEmpty && !studio.running {
-                        ContentUnavailableView("A conversation with \(current.title)", systemImage: "bubble.left.and.bubble.right", description: Text("Messages are read from this bot’s Bot Chat on your Studio."))
+                        ContentUnavailableView("A conversation with \(current.title)", systemImage: "bubble.left.and.bubble.right", description: Text("Messages come from this profile’s Bot Chat in Hermes."))
                     }
                     ForEach(studio.messages) { message in
                         VStack(alignment: .leading, spacing: 6) {
@@ -227,7 +227,7 @@ struct StudioBotView: View {
                             Text(.init(message.text)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
-                    if studio.running { Label("Working on Studio…", systemImage: "circle.dotted").font(.subheadline).foregroundStyle(.secondary) }
+                    if studio.running { Label("Hermes is working…", systemImage: "circle.dotted").font(.subheadline).foregroundStyle(.secondary) }
                 }.padding(20)
             }
             HStack(alignment: .bottom, spacing: 12) {
@@ -247,7 +247,7 @@ struct StudioBotView: View {
         .navigationTitle(current.title).navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Clear the saved message?", isPresented: $confirmingClear) {
             Button("Clear saved message", role: .destructive) { studio.clearSavedInput(current); input = "" }
-        } message: { Text("Clearing this record does not cancel any work Hermes accepted. Check the conversation on your Mac Studio first.") }
+        } message: { Text("Clearing this record does not cancel any work Hermes accepted. Check the conversation in Hermes first.") }
         .sheet(isPresented: $choosingModel) {
             NavigationStack {
                 StudioModelPicker(choices: model.modelChoices, selected: nil, allowsDefault: false) { choice in
@@ -281,17 +281,17 @@ struct StudioBotCreateView: View {
                 TextField("Role and description", text: $description, axis: .vertical).lineLimit(3...7)
                 NavigationLink {
                     StudioModelPicker(choices: model.modelChoices, selected: choice) { choice = $0 }
-                } label: { LabeledContent("Model", value: choice?.model ?? "Studio default") }
+                } label: { LabeledContent("Model", value: choice?.model ?? "Hermes default") }
             }
             Section {
-                Button("Create on Studio") {
+                Button("Create bot") {
                     saving = true
                     Task { if await studio.create(name: name, description: description, model: choice) { dismiss() }; saving = false }
                 }.disabled(saving || name.isEmpty || !name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") })
-            } footer: { Text("Creates a real Hermes profile on your Studio. Existing messaging channels are not cloned.") }
+            } footer: { Text("Creates a profile on your Hermes server. Existing messaging channels are not cloned.") }
             if let error = studio.error { Text(error).font(.footnote).foregroundStyle(.red) }
         }
-        .navigationTitle("Create Studio bot").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Create Hermes bot").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         .task { await model.refreshModelChoices() }
     }
@@ -307,7 +307,7 @@ struct StudioModelPicker: View {
     private var filtered: [ModelChoice] { choices.filter { search.isEmpty || $0.model.localizedCaseInsensitiveContains(search) || $0.providerName.localizedCaseInsensitiveContains(search) } }
     var body: some View {
         List {
-            if allowsDefault { Button("Studio default") { select(nil); dismiss() } }
+            if allowsDefault { Button("Hermes default") { select(nil); dismiss() } }
             ForEach(Dictionary(grouping: filtered, by: \.provider).keys.sorted(), id: \.self) { provider in
                 Section(filtered.first { $0.provider == provider }?.providerName ?? provider) {
                     ForEach(filtered.filter { $0.provider == provider }) { choice in
@@ -317,7 +317,7 @@ struct StudioModelPicker: View {
                     }
                 }
             }
-        }.navigationTitle("Studio models").searchable(text: $search, prompt: "Search models and providers")
-            .overlay { if choices.isEmpty { ContentUnavailableView("No models loaded", systemImage: "cpu", description: Text("Check your Studio connection and reload its model catalog.")) } }
+        }.navigationTitle("Hermes models").searchable(text: $search, prompt: "Search models and providers")
+            .overlay { if choices.isEmpty { ContentUnavailableView("No models loaded", systemImage: "cpu", description: Text("Check your Hermes provider and reload its model catalog.")) } }
     }
 }

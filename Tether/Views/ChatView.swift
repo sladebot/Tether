@@ -101,7 +101,7 @@ struct ChatView: View {
             Button { composerFocused = false; showingModels = true } label: {
                 VStack(spacing: 2) {
                     HStack(spacing: 5) {
-                        Text("Tether").font(.headline)
+                        Text(model.selectedConnection?.providerKind.title ?? "Tether").font(.headline)
                         Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
                     }
                     if let choice = model.selectedModelChoice {
@@ -154,8 +154,8 @@ struct ChatView: View {
             if model.selectedConnection == nil {
                 Image(systemName: "point.3.connected.trianglepath.dotted").font(.system(size: 36)).foregroundStyle(.tint)
                 Text("Connect to Hermes").font(.title2.bold())
-                Text("Add your local or Tailscale gateway to start chatting.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                Button("Set Up Connection") { showingConnections = true }.buttonStyle(TetherPrimaryButtonStyle())
+                Text("Add Hermes with its Tailscale URL and API token to start chatting.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Button("Add provider") { showingConnections = true }.buttonStyle(TetherPrimaryButtonStyle())
             } else {
                 Text("What can I help with?").font(.system(size: 28, weight: .semibold))
             }
@@ -196,7 +196,7 @@ struct ChatView: View {
                         }
                         Button("Mini apps", systemImage: "square.grid.2x2") { showingMiniApps = true }
                         Button("Choose model", systemImage: "slider.horizontal.3") { showingModels = true }
-                        Button("Connections", systemImage: "network") { showingConnections = true }
+                        Button("Providers", systemImage: "network") { showingConnections = true }
                     } label: {
                         Image(systemName: "plus").font(.system(size: 22)).frame(width: 44, height: 44).contentShape(Rectangle())
                     }.accessibilityLabel("Chat options")
@@ -382,7 +382,7 @@ private struct ConversationDrawer: View {
                 }
             }.listStyle(.plain).scrollContentBackground(.hidden)
             Button(action: onConnections) {
-                Label("Connections & settings", systemImage: "gearshape")
+                Label("Providers & settings", systemImage: "gearshape")
                     .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, alignment: .leading).padding(20)
             }
         }.padding(.top, 8)
