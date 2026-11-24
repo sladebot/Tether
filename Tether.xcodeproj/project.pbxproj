@@ -24,10 +24,10 @@
 		A1000000000000000000000F /* MiniAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* MiniAppStore.swift */; };
 		A10000000000000000000010 /* MiniAppsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* MiniAppsView.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* Assets.xcassets */; };
-		A10000000000000000000014 /* Bot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* Bot.swift */; };
-		A10000000000000000000015 /* BotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* BotStore.swift */; };
 		A10000000000000000000016 /* BotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* BotsView.swift */; };
-		A10000000000000000000017 /* BotStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017; };
+		A10000000000000000000017 /* HermesStudioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017; };
+		A10000000000000000000018 /* HermesStudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018; };
+		A10000000000000000000019 /* LiveStudioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,10 +60,10 @@
 		B10000000000000000000011 /* MiniAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppStore.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* MiniAppsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppsView.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B10000000000000000000014 /* Bot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bot.swift; sourceTree = "<group>"; };
-		B10000000000000000000015 /* BotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotStore.swift; sourceTree = "<group>"; };
 		B10000000000000000000016 /* BotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotsView.swift; sourceTree = "<group>"; };
-		B10000000000000000000017 /* BotStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotStoreTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000017 /* HermesStudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesStudioTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000018 /* HermesStudioStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesStudioStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000019 /* LiveStudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStudioTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,7 +121,6 @@
 				B10000000000000000000003 /* AgentConnection.swift */,
 				B10000000000000000000004 /* ChatMessage.swift */,
 				B10000000000000000000010 /* MiniApp.swift */,
-				B10000000000000000000014 /* Bot.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -133,7 +132,7 @@
 				B10000000000000000000006 /* ConnectionStore.swift */,
 				B10000000000000000000007 /* HermesAPIClient.swift */,
 				B10000000000000000000011 /* MiniAppStore.swift */,
-				B10000000000000000000015 /* BotStore.swift */,
+				B10000000000000000000018,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -155,7 +154,8 @@
 			isa = PBXGroup;
 			children = (
 				B1000000000000000000000D /* TetherTests.swift */,
-				B10000000000000000000017 /* BotStoreTests.swift */,
+				B10000000000000000000017 /* HermesStudioTests.swift */,
+				B10000000000000000000019,
 			);
 			path = TetherTests;
 			sourceTree = "<group>";
@@ -280,8 +280,7 @@
 				A10000000000000000000001 /* TetherApp.swift in Sources */,
 				A10000000000000000000002 /* AppModel.swift in Sources */,
 				A10000000000000000000016 /* BotsView.swift in Sources */,
-				A10000000000000000000015 /* BotStore.swift in Sources */,
-				A10000000000000000000014 /* Bot.swift in Sources */,
+				A10000000000000000000018,
 				A10000000000000000000003 /* AgentConnection.swift in Sources */,
 				A10000000000000000000004 /* ChatMessage.swift in Sources */,
 				A10000000000000000000005 /* KeychainStore.swift in Sources */,
@@ -302,7 +301,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000000000000000000000C /* TetherTests.swift in Sources */,
-				A10000000000000000000017 /* BotStoreTests.swift in Sources */,
+				A10000000000000000000017 /* HermesStudioTests.swift in Sources */,
+				A10000000000000000000019,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

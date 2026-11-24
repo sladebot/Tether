@@ -370,8 +370,9 @@ final class AppModel: ObservableObject {
         saveCurrentChat()
     }
 
-    func buildMiniApp(title: String, request: String, updating app: MiniApp? = nil) async -> Bool {
-        guard let connection = selectedConnection else {
+    func buildMiniApp(title: String, request: String, updating app: MiniApp? = nil, modelChoice: ModelChoice? = nil) async -> Bool {
+        let buildConnection = app?.connectionID.flatMap { id in connections.first { $0.id == id } } ?? (app?.connectionID == nil ? selectedConnection : nil)
+        guard let connection = buildConnection else {
             alertMessage = "Add and select a Hermes connection before building a mini app."
             return false
         }
@@ -398,7 +399,7 @@ final class AppModel: ObservableObject {
 
         Return exactly one complete, self-contained HTML document beginning with <!DOCTYPE html>. Do not use Markdown fences or add commentary. Put all CSS and JavaScript inline. Do not use external packages, URLs, fonts, images, network requests, iframes, or APIs. The app must work offline, fit a mobile viewport, support touch, use accessible labels and contrast, respect light/dark color schemes, and persist state only in memory for the current run.
         """
-        miniAppJob = MiniAppBuildJob(connectionID: connection.id, title: title, prompt: builderPrompt, model: selectedModelChoice)
+        miniAppJob = MiniAppBuildJob(connectionID: connection.id, title: title, prompt: builderPrompt, model: modelChoice ?? app?.model)
         miniAppJob?.targetAppID = app?.id
         persistMiniAppJob()
         miniAppBuildStatus = "Queued — waiting for Hermes"
@@ -457,7 +458,17 @@ final class AppModel: ObservableObject {
                 do {
                     if current.runID == nil {
                         self.miniAppBuildStatus = "Submitting to Hermes…"
-                        try await client.requireDurableRuns()
+                        let retention = try await client.requireDurableRuns()
+                        if let first = current.firstSubmissionAt,
+                           Date().timeIntervalSince(first) >= (current.retentionSeconds ?? 0) {
+                            throw HermesAPIClient.ClientError.durableRunsUnavailable("this build’s duplicate-protection window expired; check the original task on Studio")
+                        }
+                        if current.firstSubmissionAt == nil {
+                            current.firstSubmissionAt = .now
+                            current.retentionSeconds = retention
+                            self.miniAppJob = current
+                            self.persistMiniAppJob()
+                        }
                         let result = try await client.createRun(input: current.prompt,
                             sessionID: current.id.uuidString, history: [], modelChoice: current.model,
                             idempotencyKey: current.id.uuidString)
@@ -474,7 +485,7 @@ final class AppModel: ObservableObject {
                     } else { self.miniAppApproval = nil }
                     if status.status == "completed" {
                         let html = try MiniAppDocument.prepare(status.output ?? "")
-                        let saved = try self.miniAppStore.save(title: current.title, html: html, id: current.targetAppID ?? current.id)
+                        let saved = try self.miniAppStore.save(title: current.title, html: html, id: current.targetAppID ?? current.id, connectionID: current.connectionID, model: current.model)
                         if current.targetAppID != nil {
                             try self.miniAppStore.appendChat(ChatMessage(id: current.id, role: .assistant, content: "Updated your app. Open Preview to try it. You can restore the previous version from the menu."), for: saved)
                         }
@@ -486,9 +497,19 @@ final class AppModel: ObservableObject {
                         return
                     }
                     if ["failed", "cancelled", "interrupted"].contains(status.status) {
-                        self.miniAppBuildStatus = status.error ?? "Build \(status.status). Try a new build."
-                        self.miniAppJob = nil
+                        let message = status.error ?? status.output.flatMap { $0.isEmpty ? nil : $0 } ?? "Build \(status.status). Check the Studio before starting another build."
+                        current.failureMessage = message
+                        self.miniAppBuildStatus = message
+                        self.miniAppJob = current
                         self.persistMiniAppJob()
+                        self.isBuildingMiniApp = false
+                        return
+                    }
+                    if status.status == "unknown" {
+                        current.failureMessage = "Hermes restarted with an unknown build outcome. Resolve the original task on Studio before retrying."
+                        self.miniAppJob = current
+                        self.persistMiniAppJob()
+                        self.miniAppBuildStatus = current.failureMessage ?? ""
                         self.isBuildingMiniApp = false
                         return
                     }
@@ -516,9 +537,10 @@ final class AppModel: ObservableObject {
                         self.isBuildingMiniApp = false
                         return
                     }
-                    if error is MiniAppDocument.Error {
+                    if error is MiniAppDocument.Error || error is DecodingError {
                         self.miniAppBuildStatus = error.localizedDescription
-                        self.miniAppJob = nil
+                        current.failureMessage = error.localizedDescription
+                        self.miniAppJob = current
                         self.persistMiniAppJob()
                         self.isBuildingMiniApp = false
                         return

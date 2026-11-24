@@ -87,7 +87,7 @@ Source anchors: `Tether/Services/HermesAPIClient.swift`, `Tether/App/AppModel.sw
 | Cron schedules | Agent / Gap | List/create/pause/history with timezone-aware UI |
 | Session heartbeats / recurring loops | Agent / Gap | Session-bound controls and truthful idle/active status |
 | Kanban and worker lanes | Server / Gap | Board, assignment, lifecycle and multi-gateway ownership |
-| Named bots/profiles/group coordination | Server / Gap | Server profiles are not Tether connection profiles |
+| Named bots/profiles/group coordination | Partial | Live Studio roster and canonical Bot Chat client; native phone gateway sign-in/control acceptance awaits valid dashboard credentials. Group coordination has no dedicated UI. |
 | Webhooks / peer agent messaging | Server / Gap | Subscription management and explicit external-send consent |
 | Messaging adapters and pairing | Server / Gap | Platform registry/status; separate account authorization |
 | Batch/trajectory export/research workflows | Server / Gap | Submission/status/export contract needed |

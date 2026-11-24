@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 @testable import Tether
 
 final class TetherTests: XCTestCase {
@@ -488,6 +489,89 @@ final class TetherTests: XCTestCase {
         let event = try JSONDecoder().decode(HermesRunEvent.self, from: data)
         XCTAssertEqual(event.command, "redacted command")
         XCTAssertEqual(event.choices, ["once", "deny"])
+    }
+
+    func testNativeDashboardLoginUsesPKCEAndSavesNativeTokens() async throws {
+        try await verifyNativeLogin(stateMatches: true)
+    }
+
+    func testNativeDashboardLoginRejectsWrongStateWithoutExchangingCode() async throws {
+        try await verifyNativeLogin(stateMatches: false)
+    }
+
+    private func requestBody(_ request: URLRequest) throws -> Data {
+        if let data = request.httpBody { return data }
+        guard let stream = request.httpBodyStream else { throw URLError(.badServerResponse) }
+        stream.open(); defer { stream.close() }
+        var result = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count < 0 { throw stream.streamError ?? URLError(.cannotDecodeRawData) }
+            if count == 0 { break }
+            result.append(buffer, count: count)
+        }
+        return result
+    }
+
+    private func verifyNativeLogin(stateMatches: Bool) async throws {
+        let connection = AgentConnection(name: "Studio", baseURL: "https://studio.example.ts.net:9119", route: .tailscale, transport: .dashboard, username: "admin")
+        let tokens = DashboardTokenStore()
+        defer { tokens.remove(for: connection.id); MockURLProtocol.handler = nil }
+        var state = ""
+        var challenge = ""
+        var exchanged = false
+        MockURLProtocol.handler = { request in
+            let url = request.url!
+            var body: [String: Any] = [:]
+            switch url.path {
+            case "/api/status": body = ["auth_required": true, "auth_providers": ["basic"]]
+            case "/auth/native/authorize":
+                let items = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+                state = items.first { $0.name == "state" }!.value!
+                challenge = items.first { $0.name == "code_challenge" }!.value!
+                XCTAssertEqual(items.first { $0.name == "code_challenge_method" }?.value, "S256")
+                XCTAssertEqual(items.first { $0.name == "redirect_uri" }?.value, "http://127.0.0.1:49171/tether-callback")
+            case "/auth/password-login":
+                let input = try JSONSerialization.jsonObject(with: try self.requestBody(request)) as! [String: String]
+                XCTAssertEqual(input["username"], "admin"); XCTAssertEqual(input["password"], "test-password")
+                body = ["next": "http://127.0.0.1:49171/tether-callback?code=single-use-code&state=\(stateMatches ? state : "wrong-state")"]
+            case "/auth/native/token":
+                exchanged = true
+                let input = try JSONSerialization.jsonObject(with: try self.requestBody(request)) as! [String: String]
+                XCTAssertEqual(input["code"], "single-use-code")
+                let hash = Data(SHA256.hash(data: Data(input["code_verifier"]!.utf8))).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+                XCTAssertEqual(hash, challenge)
+                body = ["access_token": "native-access", "refresh_token": "native-refresh", "provider": "basic", "expires_at": Int(Date().timeIntervalSince1970) + 3600]
+            case "/api/auth/me": XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer native-access")
+            default: XCTFail("Unexpected native auth path: \(url.path)")
+            }
+            return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, try JSONSerialization.data(withJSONObject: body))
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let client = HermesDashboardClient(connection: connection, accessToken: "test-password", session: URLSession(configuration: configuration))
+        if stateMatches {
+            _ = try await client.gatewayRequest("api/auth/me")
+            XCTAssertTrue(exchanged)
+            XCTAssertEqual(tokens.load(for: connection.id)?.accessToken, "native-access")
+            XCTAssertEqual(tokens.load(for: connection.id)?.origin, connection.normalizedBaseURL?.absoluteString)
+        } else {
+            do { _ = try await client.gatewayRequest("api/auth/me"); XCTFail("Must reject mismatched callback state") }
+            catch { XCTAssertFalse(exchanged); XCTAssertNil(tokens.load(for: connection.id)) }
+        }
+    }
+
+    func testSavedStudioInputPreservesIdentityAndRejectsAnotherSessionReceipt() throws {
+        let input = StudioPendingInput(profile: "chief-local", sessionID: "canonical-bot-chat", text: "Do this once")
+        let restored = try JSONDecoder().decode(StudioPendingInput.self, from: JSONEncoder().encode(input))
+        XCTAssertEqual(restored, input)
+        XCTAssertEqual(restored.parameters["submission_id"]?.string, input.submissionID)
+        XCTAssertEqual(restored.parameters["profile"]?.string, "chief-local")
+        let receipt: GatewayValue = .object(["admission_id": .string("receipt"), "status": .string("queued"), "ref": .object(["session_id": .string("canonical-bot-chat")])])
+        XCTAssertTrue(restored.isConfirmed(by: receipt))
+        XCTAssertFalse(restored.isConfirmed(by: .object(["admission_id": .string("receipt"), "status": .string("queued"), "ref": .object(["session_id": .string("another-chat")])])))
+        XCTAssertFalse(restored.isConfirmed(by: .object(["status": .string("queued"), "ref": .object(["session_id": .string("canonical-bot-chat")])])))
     }
 
     func testDashboardTokensRoundTrip() throws {

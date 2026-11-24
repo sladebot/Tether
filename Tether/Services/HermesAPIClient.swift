@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct HermesAPIClient: Sendable {
     enum ClientError: LocalizedError {
@@ -330,7 +331,7 @@ struct HermesAPIClient: Sendable {
     }
 }
 
-private struct HermesDashboardClient: Sendable {
+struct HermesDashboardClient: Sendable {
     enum DashboardError: LocalizedError {
         case invalidURL
         case invalidBootstrap
@@ -371,6 +372,28 @@ private struct HermesDashboardClient: Sendable {
         let data = try await get("api/model/info", auth: auth, query: [.init(name: "profile", value: profile)])
         let info = try JSONDecoder().decode(ModelInfo.self, from: data)
         return info.model ?? "Hermes Dashboard"
+    }
+
+    func gatewaySocket() async throws -> URLSessionWebSocketTask {
+        try await webSocket(path: "api/ws", auth: authenticate())
+    }
+
+    func gatewayRequest(_ path: String, method: String = "GET", body: Data? = nil) async throws -> Data {
+        let auth = try await authenticate()
+        guard let url = connection.endpoint(path) else { throw DashboardError.invalidURL }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        request.httpMethod = method
+        request.httpBody = body
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        switch auth {
+        case let .bearer(token): request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        case let .loopbackToken(token): request.setValue(token, forHTTPHeaderField: "X-Hermes-Session-Token")
+        case .sessionCookie: break
+        }
+        let (data, response) = try await session.data(for: request)
+        try validate(response, data: data)
+        return data
     }
 
     func stream(messages: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
@@ -477,13 +500,10 @@ private struct HermesDashboardClient: Sendable {
             }
             let username = connection.username?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !username.isEmpty, !accessToken.isEmpty else { throw DashboardError.loginRequired }
-            if let issued = try await passwordLogin(username: username, password: accessToken) {
-                _ = try await get("api/auth/me", auth: .bearer(issued.accessToken))
-                try tokenStore.save(issued, for: connection.id)
-                return .bearer(issued.accessToken)
-            }
-            _ = try await get("api/auth/me", auth: .sessionCookie)
-            return .sessionCookie
+            let issued = try await passwordLogin(username: username, password: accessToken)
+            _ = try await get("api/auth/me", auth: .bearer(issued.accessToken))
+            try tokenStore.save(issued, for: connection.id)
+            return .bearer(issued.accessToken)
         }
         return .loopbackToken(try await dashboardToken())
     }
@@ -508,7 +528,25 @@ private struct HermesDashboardClient: Sendable {
         return String(html[range])
     }
 
-    private func passwordLogin(username: String, password: String) async throws -> DashboardTokens? {
+    private func passwordLogin(username: String, password: String) async throws -> DashboardTokens {
+        // Obtain native-app tokens rather than reusing browser cookies as bearer
+        // credentials. Modern Hermes deliberately distinguishes those sessions.
+        let verifier = UUID().uuidString + UUID().uuidString
+        let state = UUID().uuidString
+        let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        guard let base = connection.endpoint("auth/native/authorize"),
+              var authorizeURL = URLComponents(url: base, resolvingAgainstBaseURL: false) else { throw DashboardError.invalidURL }
+        authorizeURL.queryItems = [
+            .init(name: "provider", value: "basic"), .init(name: "code_challenge", value: challenge),
+            .init(name: "code_challenge_method", value: "S256"),
+            .init(name: "redirect_uri", value: "http://127.0.0.1:49171/tether-callback"), .init(name: "state", value: state)
+        ]
+        guard let authorize = authorizeURL.url else { throw DashboardError.invalidURL }
+        let (_, authorizationResponse) = try await session.data(from: authorize)
+        guard let http = authorizationResponse as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw DashboardError.loginRequired
+        }
         guard let url = connection.endpoint("auth/password-login") else { throw DashboardError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -519,21 +557,25 @@ private struct HermesDashboardClient: Sendable {
         ))
         let (data, response) = try await session.data(for: request)
         try validate(response, data: data)
-        let cookieStorage = session.configuration.httpCookieStorage ?? HTTPCookieStorage.shared
-        let cookies = cookieStorage.cookies(for: url) ?? []
-        guard let access = cookies.first(where: { $0.name.hasSuffix("hermes_session_at") }) else {
-            return nil
+        struct LoginResponse: Decodable { let next: String }
+        if let next = try? JSONDecoder().decode(LoginResponse.self, from: data).next,
+           let callback = URLComponents(string: next), callback.host == "127.0.0.1",
+           callback.scheme == "http", callback.port == 49171, callback.path == "/tether-callback",
+           callback.queryItems?.first(where: { $0.name == "state" })?.value == state,
+           let code = callback.queryItems?.first(where: { $0.name == "code" })?.value {
+            guard let tokenURL = connection.endpoint("auth/native/token") else { throw DashboardError.invalidURL }
+            var exchange = URLRequest(url: tokenURL)
+            exchange.httpMethod = "POST"
+            exchange.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            exchange.httpBody = try JSONEncoder().encode(["code": code, "code_verifier": verifier])
+            let (tokenData, tokenResponse) = try await session.data(for: exchange)
+            try validate(tokenResponse, data: tokenData)
+            let tokens = try JSONDecoder().decode(NativeTokenEnvelope.self, from: tokenData)
+            return DashboardTokens(origin: connection.normalizedBaseURL?.absoluteString ?? "",
+                accessToken: tokens.accessToken, refreshToken: tokens.refreshToken,
+                provider: tokens.provider, expiresAt: tokens.expiresAt)
         }
-        let refresh = cookies.first(where: { $0.name.hasSuffix("hermes_session_rt") })?.value ?? ""
-        let provider = cookies.first(where: { $0.name.hasSuffix("hermes_session_provider") })?.value ?? "basic"
-        let expiry = Int(access.expiresDate?.timeIntervalSince1970 ?? Date().addingTimeInterval(12 * 60 * 60).timeIntervalSince1970)
-        return DashboardTokens(
-            origin: connection.normalizedBaseURL?.absoluteString ?? "",
-            accessToken: access.value,
-            refreshToken: refresh,
-            provider: provider,
-            expiresAt: expiry
-        )
+        throw DashboardError.invalidResponse
     }
 
     private func refresh(_ tokens: DashboardTokens) async throws -> DashboardTokens {

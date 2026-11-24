@@ -121,6 +121,7 @@ private struct MiniAppBuilderView: View {
     @State private var title = ""
     @State private var request = ""
     @State private var submitting = false
+    @State private var modelChoice: ModelChoice?
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -132,11 +133,18 @@ private struct MiniAppBuilderView: View {
                     .focused($inputFocused)
             }
             Section {
+                NavigationLink {
+                    StudioModelPicker(choices: model.modelChoices, selected: modelChoice) { modelChoice = $0 }
+                } label: {
+                    LabeledContent("Studio model", value: modelChoice?.model ?? "Hermes default")
+                }
+            } footer: { Text("Generated on your Studio through Hermes. Choose from the models available on that server.") }
+            Section {
                 Button {
                     submitting = true
                     inputFocused = false
                     Task {
-                        if await model.buildMiniApp(title: title, request: request) { dismiss() }
+                        if await model.buildMiniApp(title: title, request: request, modelChoice: modelChoice) { dismiss() }
                         submitting = false
                     }
                 } label: {
@@ -154,6 +162,7 @@ private struct MiniAppBuilderView: View {
             }
         }
         .navigationTitle("Build Mini App")
+        .task { await model.refreshModelChoices() }
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
@@ -203,7 +212,8 @@ private struct MiniAppRunnerView: View {
                     }.disabled(submitting || model.hasSavedMiniAppBuild || request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.padding().background(.bar)
             } else {
-                IsolatedWebView(fileURL: model.miniAppURL(for: current)).id(current.updatedAt)
+                MiniAppPreview(fileURL: model.miniAppURL(for: current)).id(current.updatedAt)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
             .navigationTitle(app.title)
@@ -220,40 +230,82 @@ private struct MiniAppRunnerView: View {
     }
 }
 
-private struct IsolatedWebView: UIViewRepresentable {
+struct MiniAppPreview: View {
     let fileURL: URL
+    @StateObject private var controller = MiniAppPreviewController()
 
-    func makeCoordinator() -> Coordinator { Coordinator(allowedFileURL: fileURL) }
+    var body: some View {
+        ZStack {
+            IsolatedWebView(fileURL: fileURL, controller: controller)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let error = controller.error {
+                ContentUnavailableView {
+                    Label("Preview couldn’t open", systemImage: "exclamationmark.triangle")
+                } description: { Text(error) }
+                actions: { Button("Reload preview") { controller.load(fileURL) } }
+                .background(Color(.systemBackground))
+            } else if controller.isLoading {
+                ProgressView("Opening app…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+    }
+}
 
-    func makeUIView(context: Context) -> WKWebView {
+@MainActor
+final class MiniAppPreviewController: NSObject, ObservableObject, WKNavigationDelegate {
+    @Published var error: String?
+    @Published var isLoading = false
+    private(set) var webView: WKWebView?
+
+    func makeWebView(fileURL: URL) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-        let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.navigationDelegate = context.coordinator
-        webView.isInspectable = false
-        // Reapply the trusted policy to legacy saved documents too. Loading a string
-        // also avoids granting generated code read access to sibling files.
-        if let source = try? String(contentsOf: fileURL, encoding: .utf8),
-           let document = try? MiniAppDocument.prepare(source) {
-            webView.loadHTMLString(document, baseURL: nil)
-        }
-        return webView
+        let web = WKWebView(frame: .zero, configuration: configuration)
+        web.navigationDelegate = self
+        web.isInspectable = false
+        web.allowsLinkPreview = false
+        webView = web
+        load(fileURL)
+        return web
     }
 
+    func load(_ fileURL: URL) {
+        error = nil
+        isLoading = true
+        do {
+            let source = try String(contentsOf: fileURL, encoding: .utf8)
+            let document = try MiniAppDocument.prepare(source)
+            webView?.loadHTMLString(document, baseURL: nil)
+        } catch {
+            self.error = error.localizedDescription
+            isLoading = false
+        }
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+        // Only the harness's string document may navigate this renderer.
+        action.request.url?.absoluteString == "about:blank" ? .allow : .cancel
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { isLoading = false }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { fail(error) }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { fail(error) }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        error = "The preview process stopped. Reload to open your app again."
+        isLoading = false
+    }
+    private func fail(_ error: Error) { self.error = error.localizedDescription; isLoading = false }
+}
+
+struct IsolatedWebView: UIViewRepresentable {
+    let fileURL: URL
+    @ObservedObject var controller: MiniAppPreviewController
+
+    init(fileURL: URL, controller: MiniAppPreviewController) {
+        self.fileURL = fileURL
+        self.controller = controller
+    }
+    func makeUIView(context: Context) -> WKWebView { controller.makeWebView(fileURL: fileURL) }
     func updateUIView(_ webView: WKWebView, context: Context) {}
-
-    @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        private let allowedFileURL: URL
-
-        init(allowedFileURL: URL) { self.allowedFileURL = allowedFileURL.standardizedFileURL }
-
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-            guard let url = navigationAction.request.url else { return .cancel }
-            let allowed = url.absoluteString == "about:blank"
-            return allowed ? .allow : .cancel
-        }
-    }
 }

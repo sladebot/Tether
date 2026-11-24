@@ -9,6 +9,8 @@ struct MiniAppBuildJob: Codable {
     var runID: String?
     var targetAppID: UUID?
     var failureMessage: String? = nil
+    var firstSubmissionAt: Date? = nil
+    var retentionSeconds: TimeInterval? = nil
 }
 
 struct MiniApp: Identifiable, Codable, Hashable, Sendable {
@@ -16,6 +18,8 @@ struct MiniApp: Identifiable, Codable, Hashable, Sendable {
     var title: String
     let createdAt: Date
     var updatedAt: Date
+    var connectionID: UUID? = nil
+    var model: ModelChoice? = nil
 
     init(id: UUID = UUID(), title: String, createdAt: Date = .now, updatedAt: Date = .now) {
         self.id = id

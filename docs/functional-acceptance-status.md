@@ -1,6 +1,22 @@
 # Functional acceptance status
 
-## Bot Mode and Studio verification — 2026-11-23
+## Mac Studio Hermes verification — 2026-11-24
+
+Current behavior supersedes the 2026-11-23 local bot catalog below. The app uses Hermes on the Mac Studio over Tailscale; no independent provider connectors or local model/agent execution were added. Generated mini-app HTML is a phone-rendered frontend.
+
+- Hermes 0.23.3 is reachable at `https://souranils-mac-studio.tail4a305f.ts.net` (API) and port `9119` (gateway). The Mac’s Tailscale address is `100.86.238.64`. Existing Serve configuration was preserved.
+- Gateway status reports the real profiles `default` and `chief-local`. The new Bots view uses those live profiles and the gateway’s canonical Bot Chat, replacing the phone-created Studio Assistant/Writer definitions. Legacy catalog code is removed; saved legacy files are preserved.
+- Studio’s default model is oMLX `Inkling-2-Mini-oQ4e-mtp`. Models and provider choices continue to come from Hermes, including any subscription credentials managed there.
+- The production app created a counter via the real Runs API (`run_5719ccc7c46441a7a868516a9e6ff2f5`). Its generated counter rendered in the app after the preview lifetime/layout fix. Loading and failure states now appear explicitly.
+- An opt-in `LiveStudioTests` run passed against the real API using the production AppModel and preview controller: create a counter, click Increment, request an edit adding Reset, verify Reset, retain one artifact, and roll back to the original HTML. Artifact `CF62D5B1-D86E-4CB8-A69F-58352CBED737`; result `/private/tmp/tether-live-miniapp-acceptance.xcresult`. No network client was replaced in that test.
+- Native gateway protocol was verified on the Studio through the official same-user gateway client over authorized Tailscale SSH. Reading `chief-local` returned its existing eight messages. A scratch default-profile session accepted a prompt and completed with `TETHER-GATEWAY-VERIFIED` using oMLX. Session `local-62c58dfa395a55d2c3a2c1f1e59b45cbf54846ea4742931ddb38fc2619d05ee4`, admission `cc1af2b738e94386a6cbca94c50117cb`. No profiles were created or existing Bot Chats modified by that probe.
+- The phone client now uses native PKCE tokens, current canonical session fields, same-socket resume before prompt/control, exact approval generation, and saved submission identities for unconfirmed delivery.
+- Final regression suite: 45 tests passed, one opt-in live test skipped, zero failures in `/private/tmp/tether-hermes-final-tests.xcresult`. The separate opt-in real-Studio mini-app test above passed. Coverage includes PKCE challenge/code exchange, callback-state rejection, saved submission identity, real mounted SwiftUI/WebKit preview, and CSP enforcement.
+- **Still unverified:** authenticated bot conversation/control from the phone client. Both supplied dashboard passwords were rejected with HTTP 401; the second also failed verification against the configured password hash. No passwords were changed and no session was manufactured. A correct Hermes dashboard login is required to complete this acceptance.
+- Physical-iPhone installation and background lifecycle acceptance remain unverified this pass. Simulator mini-app execution and native Studio protocol probes do not establish physical-phone bot approval/cancellation acceptance.
+
+
+## Historical API-backed local catalog — 2026-11-23 (superseded)
 
 - Native Home, Chat, Bots, and Library navigation compiles with simulator signing enabled.
 - All 50 tests passed in `/private/tmp/tether-bots-final-tests.xcresult`. Coverage includes independent provider/model routing, frozen queued settings, sequential work per bot, recovery without resubmission, cancellation retry, exact approval targeting, missing-connection recovery, provider failure explanations, and the mini-app CSP comment bypass regression in WebKit.

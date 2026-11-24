@@ -20,10 +20,12 @@ final class MiniAppStore {
             .sorted { $0.updatedAt > $1.updatedAt } ?? []
     }
 
-    func save(title: String, html: String, id: UUID = UUID()) throws -> MiniApp {
+    func save(title: String, html: String, id: UUID = UUID(), connectionID: UUID? = nil, model: ModelChoice? = nil) throws -> MiniApp {
         try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
         let existing = load().first { $0.id == id }
-        let app = MiniApp(id: id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), createdAt: existing?.createdAt ?? .now)
+        var app = MiniApp(id: id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), createdAt: existing?.createdAt ?? .now)
+        app.connectionID = connectionID ?? existing?.connectionID
+        app.model = model ?? existing?.model
         let directory = directoryURL(for: app)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let old = try? Data(contentsOf: htmlURL(for: app))
