@@ -109,7 +109,7 @@ struct HermesAPIClient: Sendable {
         return envelope.data.map(\.id)
     }
 
-    func modelOptions() async throws -> [ModelChoice] {
+    func modelOptions() async throws -> (defaultModel: String?, choices: [ModelChoice]) {
         guard let url = connection.endpoint("api/model/options") else { throw ClientError.invalidURL }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
         request.timeoutInterval = 20
@@ -117,11 +117,12 @@ struct HermesAPIClient: Sendable {
         let (data, response) = try await session.data(for: request)
         try validate(response, data: data)
         let envelope = try JSONDecoder().decode(ModelOptionsEnvelope.self, from: data)
-        return envelope.providers
+        let choices = envelope.providers
             .filter(\.authenticated)
             .flatMap { provider in
                 provider.models.map { ModelChoice(provider: provider.slug, providerName: provider.name, model: $0) }
             }
+        return (envelope.model, choices)
     }
 
     func createRun(
@@ -774,6 +775,7 @@ private struct ModelsEnvelope: Decodable {
 }
 
 private struct ModelOptionsEnvelope: Decodable {
+    let model: String?
     struct Provider: Decodable {
         let slug: String
         let name: String

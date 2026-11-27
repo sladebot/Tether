@@ -156,6 +156,37 @@ final class TetherTests: XCTestCase {
         XCTAssertEqual(original.preservingServerIdentity(previous: nil).id, original.id)
     }
 
+    @MainActor
+    func testStopBeforeServerAcknowledgementKeepsRecoverableTurn() throws {
+        let suite = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(store: ConnectionStore(defaults: defaults))
+        let bot = AgentConnection(name: "Test bot", baseURL: "http://localhost", route: .local)
+        var pending = PendingRun(idempotencyKey: "same-turn", turnID: UUID(),
+                                 assistantMessageID: UUID(), input: "Hello", conversationHistory: [],
+                                 createdAt: .now, state: .submitting)
+        pending.firstSubmissionAt = .now
+        let chat = Conversation(connectionID: bot.id, pendingRun: pending)
+        model.connections = [bot]
+        model.selectedConnectionID = bot.id
+        model.conversations = [chat]
+        model.selectedConversationID = chat.id
+        model.isResponding = true
+        model.stop()
+        pending.stopRequested = true
+        XCTAssertEqual(model.selectedConversation?.pendingRun, pending)
+        XCTAssertTrue(model.isResponding)
+    }
+
+    func testNamedBotsKeepDistinctEndpointsAndConnectionIdentities() {
+        let first = AgentConnection(name: "Planner", baseURL: "https://host.ts.net/p/planner", route: .tailscale)
+        var second = first
+        second.baseURL = "https://host.ts.net/p/studio"
+        XCTAssertEqual(second.endpoint("v1/runs")?.path, "/p/studio/v1/runs")
+        XCTAssertNotEqual(second.preservingServerIdentity(previous: first).id, first.id)
+    }
+
     func testPendingRunModelSnapshotSurvivesRoundTripAndLegacyDecode() throws {
         let choice = ModelChoice(provider: "custom", providerName: "VM provider", model: "queued-model")
         let pending = PendingRun(idempotencyKey: "queued-turn", runID: nil, turnID: UUID(),
@@ -400,7 +431,7 @@ final class TetherTests: XCTestCase {
     func testDiscoversOnlyAuthenticatedHermesModelOptions() async throws {
         MockURLProtocol.handler = { request in
             XCTAssertEqual(request.url?.path, "/api/model/options")
-            let body = #"{"providers":[{"slug":"custom:omlx","name":"omlx","authenticated":true,"models":["Qwen"]},{"slug":"offline","name":"Offline","authenticated":false,"models":["Nope"]}]}"#
+            let body = #"{"model":"Qwen","providers":[{"slug":"custom:omlx","name":"omlx","authenticated":true,"models":["Qwen"]},{"slug":"offline","name":"Offline","authenticated":false,"models":["Nope"]}]}"#
             return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, Data(body.utf8))
         }
         let configuration = URLSessionConfiguration.ephemeral
@@ -409,7 +440,8 @@ final class TetherTests: XCTestCase {
             connection: AgentConnection(name: "Hermes", baseURL: "https://host.ts.net", route: .tailscale),
             apiKey: "key", session: URLSession(configuration: configuration)
         ).modelOptions()
-        XCTAssertEqual(choices, [ModelChoice(provider: "custom:omlx", providerName: "omlx", model: "Qwen")])
+        XCTAssertEqual(choices.defaultModel, "Qwen")
+        XCTAssertEqual(choices.choices, [ModelChoice(provider: "custom:omlx", providerName: "omlx", model: "Qwen")])
     }
 
     func testRunSubmissionUsesIdempotencySessionAndModelRouting() async throws {

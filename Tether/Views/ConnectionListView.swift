@@ -55,6 +55,7 @@ struct ConnectionListView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden).background(Studio.canvas)
         .navigationTitle("Providers")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { Button("Add provider", systemImage: "plus") { adding = true } }

@@ -2,39 +2,54 @@ import SwiftUI
 import WebKit
 
 struct MiniAppsView: View {
-    var embedded = false
     @EnvironmentObject private var model: AppModel
-    @Environment(\.dismiss) private var dismiss
     @State private var showingBuilder = false
     @State private var showingConnections = false
+    @State private var deleting: MiniApp?
     @State private var confirmingDiscard = false
 
     var body: some View {
         NavigationStack {
-            Group {
-                if model.miniApps.isEmpty { emptyState }
-                else {
-                    List {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Image(systemName: "square.on.square.dashed").font(.largeTitle)
+                        Text("Make a space").font(.system(.title, design: .rounded, weight: .bold))
+                        Text("Describe a tool for your routine. Hermes builds it, and you can keep shaping it here.")
+                        Button(model.selectedConnection == nil ? "Connect to Hermes" : "Create a space") {
+                            if model.selectedConnection == nil { showingConnections = true }
+                            else { showingBuilder = true }
+                        }.buttonStyle(TetherPrimaryButtonStyle()).disabled(model.hasSavedMiniAppBuild)
+                    }.padding(22).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Studio.wash, in: RoundedRectangle(cornerRadius: 26))
+                    if !model.miniApps.isEmpty {
+                        Text("Your spaces").font(.title2.bold())
                         ForEach(model.miniApps) { app in
-                            NavigationLink(value: app) {
-                                Label {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(app.title).font(.headline)
-                                        Text(app.updatedAt, format: .relative(presentation: .named))
-                                            .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                } icon: {
-                                    Image(systemName: "app.dashed").foregroundStyle(.tint)
+                            HStack {
+                                NavigationLink(value: app) {
+                                    HStack(spacing: 14) {
+                                        Image(systemName: "square.grid.2x2.fill").foregroundStyle(Studio.accent)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(app.title).font(.headline)
+                                            Text(app.updatedAt, format: .relative(presentation: .named)).font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                    }.contentShape(Rectangle())
                                 }
-                            }
-                            .swipeActions {
-                                Button("Delete", role: .destructive) { model.deleteMiniApp(app) }
-                            }
+                                Menu {
+                                    Button("Delete space", role: .destructive) { deleting = app }
+                                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                                .accessibilityLabel("Options for " + app.title)
+                            }.padding(14).background(Studio.paper, in: RoundedRectangle(cornerRadius: 18))
                         }
                     }
-                }
-            }
-            .navigationTitle(embedded ? "Library" : "Mini Apps")
+                }.foregroundStyle(Studio.ink).padding(20).frame(maxWidth: 640)
+            }.frame(maxWidth: .infinity).background(Studio.canvas)
+            .navigationTitle("Spaces")
+            .alert("Delete this space?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), presenting: deleting) { app in
+                Button("Delete", role: .destructive) { model.deleteMiniApp(app) }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text($0.title) }
             .safeAreaInset(edge: .top) {
                 if !model.miniAppBuildStatus.isEmpty {
                     HStack(alignment: .top, spacing: 12) {
@@ -68,13 +83,6 @@ struct MiniAppsView: View {
             }
             .task { model.resumeMiniAppBuild() }
             .navigationDestination(for: MiniApp.self) { app in MiniAppRunnerView(app: app) }
-            .toolbar {
-                if !embedded { ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } } }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Build Mini App", systemImage: "plus") { showingBuilder = true }
-                        .disabled(model.selectedConnection == nil || model.hasSavedMiniAppBuild)
-                }
-            }
             .sheet(isPresented: $showingBuilder) { NavigationStack { MiniAppBuilderView() } }
             .sheet(isPresented: $showingConnections) { NavigationStack { ConnectionListView() } }
             .confirmationDialog("Discard saved build?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
@@ -99,20 +107,6 @@ struct MiniAppsView: View {
         }
     }
 
-    private var emptyState: some View {
-        ContentUnavailableView {
-            Label("No Mini Apps Yet", systemImage: "square.grid.2x2")
-        } description: {
-            Text("Describe a small tool and your Hermes agent will build it as an isolated HTML app.")
-        } actions: {
-            if model.selectedConnection == nil {
-                Button("Add provider") { showingConnections = true }.buttonStyle(TetherPrimaryButtonStyle())
-            } else {
-                Button("Build a Mini App") { showingBuilder = true }.buttonStyle(TetherPrimaryButtonStyle())
-                    .disabled(model.hasSavedMiniAppBuild)
-            }
-        }
-    }
 }
 
 private struct MiniAppBuilderView: View {
@@ -125,21 +119,30 @@ private struct MiniAppBuilderView: View {
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        Form {
-            Section("Mini app") {
-                TextField("Name", text: $title)
-                TextField("Describe what it should do", text: $request, axis: .vertical)
-                    .lineLimit(5...12)
-                    .focused($inputFocused)
-            }
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("What would you like to make?").font(.system(.largeTitle, design: .rounded, weight: .bold))
+                Text("Start with an idea").font(.headline)
+                ScrollView(.horizontal) {
+                    HStack {
+                        starter("Reading list", prompt: "Track books I want to read, with notes and a finished shelf.")
+                        starter("Day planner", prompt: "Organize my day into time blocks with a checklist for each block.")
+                        starter("Meal planner", prompt: "Plan meals for the week and collect ingredients in a grocery list.")
+                    }
+                }.scrollIndicators(.hidden)
+                VStack(alignment: .leading, spacing: 14) {
+                    TextField("Space name", text: $title).font(.headline)
+                    Divider()
+                    TextField("Describe how it should work", text: $request, axis: .vertical)
+                        .lineLimit(5...12).focused($inputFocused)
+                }.padding(18).background(Studio.paper, in: RoundedRectangle(cornerRadius: 20))
                 NavigationLink {
                     StudioModelPicker(choices: model.modelChoices, selected: modelChoice) { modelChoice = $0 }
                 } label: {
-                    LabeledContent("Model", value: modelChoice?.model ?? "Hermes default")
+                    LabeledContent("Model", value: modelChoice?.model ?? model.defaultModelName ?? "Hermes default")
                 }
-            } footer: { Text("Generated through Hermes using a model available on your server.") }
-            Section {
+                Text("Once Hermes accepts the build, you can leave and return to Spaces to see the result.")
+                    .font(.footnote).foregroundStyle(.secondary)
                 Button {
                     submitting = true
                     inputFocused = false
@@ -149,19 +152,16 @@ private struct MiniAppBuilderView: View {
                     }
                 } label: {
                     HStack {
-                        Label("Start building", systemImage: "hammer")
-                        Spacer()
                         if submitting { ProgressView() }
+                        Text(submitting ? "Building…" : "Build space")
                     }
-                }
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                          request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                          model.hasSavedMiniAppBuild || submitting)
-            } footer: {
-                Text("Your build is saved immediately. Once Hermes accepts it, you can close Tether and return later for the result. Mini apps run privately with no network access.")
-            }
-        }
-        .navigationTitle("Build Mini App")
+                }.buttonStyle(TetherPrimaryButtonStyle())
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                              request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                              model.hasSavedMiniAppBuild || submitting)
+            }.padding(22).frame(maxWidth: 600)
+        }.frame(maxWidth: .infinity).background(Studio.canvas)
+        .navigationTitle("New space")
         .task { await model.refreshModelChoices() }
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
@@ -171,6 +171,11 @@ private struct MiniAppBuilderView: View {
             }
         }
     }
+    private func starter(_ name: String, prompt: String) -> some View {
+        Button(name) { title = name; request = prompt }
+            .buttonStyle(.bordered).buttonBorderShape(.capsule)
+    }
+
 }
 
 private struct MiniAppRunnerView: View {
@@ -186,7 +191,7 @@ private struct MiniAppRunnerView: View {
         VStack(spacing: 0) {
             Picker("Mode", selection: $editing) {
                 Text("Preview").tag(false)
-                Text("Edit chat").tag(true)
+                Text("Refine").tag(true)
             }.pickerStyle(.segmented).padding()
             if editing {
                 ScrollView {
@@ -216,6 +221,7 @@ private struct MiniAppRunnerView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+            .background(Studio.canvas)
             .navigationTitle(app.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

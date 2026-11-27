@@ -1,15 +1,15 @@
 import SwiftUI
 
 struct ChatView: View {
+    let onSpaces: () -> Void
     @EnvironmentObject private var model: AppModel
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(TetherAppearance.preferenceKey) private var appearance = TetherAppearance.system
     @FocusState private var composerFocused: Bool
     @State private var input = ""
     @State private var showingConnections = false
-    @State private var showingHistory = false
+    @State private var addingServer = false
     @State private var showingModels = false
-    @State private var showingMiniApps = false
     @State private var showingSteer = false
     @State private var instructions = ""
     @State private var sendingInstructions = false
@@ -20,8 +20,8 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 18) {
-                        connectionStatus
-                        if let approval = model.pendingApproval { ApprovalCard(approval: approval) }
+                        if model.selectedConnection != nil { connectionStatus }
+                        if model.messages.isEmpty { welcome }
                         ForEach(model.messages) { message in
                             if message.role == .assistant {
                                 let activities = model.activities(for: message.turnID)
@@ -34,19 +34,25 @@ struct ChatView: View {
                 }
                 .defaultScrollAnchor(.top)
                 .scrollDismissesKeyboard(.interactively)
-                .overlay { if model.messages.isEmpty { emptyState } }
+                .background(Studio.canvas)
                 .onChange(of: model.messages) { _, messages in
-                    if let last = messages.last { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.id, anchor: .bottom) } }
+                    if let last = messages.last { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo(last.id, anchor: .bottom) } }
                 }
             }
-            .safeAreaInset(edge: .bottom) { composer }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 0) {
+                    if let approval = model.pendingApproval {
+                        ScrollView { ApprovalCard(approval: approval) }
+                            .frame(maxHeight: 180).background(Studio.paper)
+                    }
+                    composer
+                }.fixedSize(horizontal: false, vertical: true)
+            }
             .safeAreaInset(edge: .top, spacing: 0) { chatHeader }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingConnections) { NavigationStack { ConnectionListView() } }
-            .sheet(isPresented: $showingMiniApps) {
-                MiniAppsView()
-            }
+            .sheet(isPresented: $addingServer) { NavigationStack { ConnectionEditorView() } }
             .sheet(isPresented: $showingModels) { ModelPickerView() }
             .sheet(isPresented: $showingSteer) {
                 NavigationStack {
@@ -63,66 +69,39 @@ struct ChatView: View {
                         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingSteer = false } } }
                 }.presentationDetents([.medium, .large])
             }
-            .task(id: model.selectedConnectionID) { await model.checkSelectedConnection() }
         }
-        .accessibilityHidden(showingHistory)
-        .overlay(alignment: .leading) {
-            if showingHistory {
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        Color.black.opacity(0.3).ignoresSafeArea()
-                            .onTapGesture { closeHistory() }
-                            .accessibilityHidden(true)
-                        ConversationDrawer(onClose: closeHistory, onConnections: {
-                            closeHistory(); showingConnections = true
-                        }, onMiniApps: {
-                            closeHistory(); showingMiniApps = true
-                        })
-                        .frame(width: min(geometry.size.width * 0.86, 360))
-                        .background(Color(.systemBackground))
-                        .transition(.move(edge: .leading))
-                        .accessibilityAddTraits(.isModal)
-                    }
-                }
-            }
+        .onChange(of: model.selectedConversationID) { old, _ in
+            if old != nil { input = ""; referencedApp = nil }
         }
     }
 
     private var chatHeader: some View {
-        HStack {
-            Button {
-                composerFocused = false
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { showingHistory = true }
-            } label: {
-                Image(systemName: "line.3.horizontal").font(.system(size: 21, weight: .medium))
-                    .frame(width: 48, height: 48).contentShape(Rectangle())
-            }.accessibilityLabel("Conversations").accessibilityIdentifier("chat.conversations")
-            Spacer(minLength: 8)
-            Button { composerFocused = false; showingModels = true } label: {
-                VStack(spacing: 2) {
-                    HStack(spacing: 5) {
-                        Text(model.selectedConnection?.providerKind.title ?? "Tether").font(.headline)
-                        Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+        HStack(spacing: 10) {
+            Button { showingConnections = true } label: {
+                Image(systemName: "point.3.connected.trianglepath.dotted").frame(width: 44, height: 44)
+                    .background(Studio.paper, in: Circle())
+            }.accessibilityLabel("Connections")
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Tether").font(.headline)
+                Text(model.selectedConnection?.name ?? "Personal agent").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Menu {
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(TetherAppearance.allCases, id: \.self) { choice in
+                        Text(choice.rawValue).tag(choice)
                     }
-                    if let choice = model.selectedModelChoice {
-                        Text(choice.model).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }.frame(minHeight: 44).contentShape(Rectangle())
-            }.accessibilityLabel("Choose model").accessibilityIdentifier("chat.models")
-            Spacer(minLength: 8)
-            Button {
-                composerFocused = false
-                if model.selectedConnection == nil { showingConnections = true }
-                else { model.newConversation(); input = "" }
+                }
             } label: {
-                Image(systemName: "square.and.pencil").font(.system(size: 21, weight: .medium))
-                    .frame(width: 48, height: 48).contentShape(Rectangle())
-            }.accessibilityLabel("New chat").accessibilityIdentifier("chat.new")
-        }.buttonStyle(.plain).foregroundStyle(.primary)
-            .padding(.horizontal, 8).background(Color(.systemBackground))
+                Image(systemName: "circle.lefthalf.filled").frame(width: 44, height: 44)
+            }.accessibilityLabel("Appearance").accessibilityValue(appearance.rawValue)
+            if model.selectedConnection != nil {
+                Button { model.newConversation(); composerFocused = false } label: {
+                    Image(systemName: "square.and.pencil").frame(width: 44, height: 44)
+                }.accessibilityLabel("New conversation")
+            }
+        }.foregroundStyle(Studio.ink).padding(.horizontal, 18).padding(.vertical, 4).background(Studio.canvas)
     }
-
-    private func closeHistory() { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { showingHistory = false } }
 
     private func isPending(_ message: ChatMessage) -> Bool {
         model.selectedConversation?.pendingRun?.assistantMessageID == message.id
@@ -131,7 +110,7 @@ struct ChatView: View {
     @ViewBuilder private var connectionStatus: some View {
         if model.selectedConversation?.pendingRun?.state == .waitingForNetwork || !model.isNetworkAvailable {
             Label("Offline — this run will resume automatically", systemImage: "arrow.clockwise.icloud")
-                .statusPill(color: .orange)
+                .statusPill(color: Studio.ink)
         } else {
             switch model.connectionState {
             case .idle, .testing:
@@ -143,28 +122,48 @@ struct ChatView: View {
                     VStack(spacing: 6) {
                         Label("Connection unavailable · Retry", systemImage: "exclamationmark.triangle.fill")
                         Text(message).font(.caption).multilineTextAlignment(.center)
-                    }.statusPill(color: .orange)
+                    }.statusPill(color: Studio.ink)
                 }.accessibilityHint(message)
             }
         }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 14) {
+    private var welcome: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            AgentLoop().frame(height: 150).frame(maxWidth: .infinity)
+            Text(model.selectedConnection == nil ? "Meet your agent." : "What’s on your mind?")
+                .font(.system(.largeTitle, design: .rounded, weight: .bold)).foregroundStyle(Studio.ink)
             if model.selectedConnection == nil {
-                Image(systemName: "point.3.connected.trianglepath.dotted").font(.system(size: 36)).foregroundStyle(.tint)
-                Text("Connect to Hermes").font(.title2.bold())
-                Text("Add Hermes with its Tailscale URL and API token to start chatting.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                Button("Add provider") { showingConnections = true }.buttonStyle(TetherPrimaryButtonStyle())
+                Text("Bring your own model. Connect Tether to Hermes on your computer to start a conversation or build a personal tool.")
+                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Button("Connect to Hermes") { addingServer = true }.buttonStyle(TetherPrimaryButtonStyle())
             } else {
-                Text("What can I help with?").font(.system(size: 28, weight: .semibold))
+                suggestion("Plan my day", icon: "sun.horizon") {
+                    input = "Help me plan my day. Ask me about my priorities first."; composerFocused = true
+                }
+                suggestion("Think through an idea", icon: "lightbulb") {
+                    input = "Help me think through an idea. Here’s what I have so far: "; composerFocused = true
+                }
+                suggestion("Build a personal tool", icon: "square.grid.2x2", action: onSpaces)
             }
-        }.frame(maxWidth: .infinity).padding(.horizontal, 28)
+        }.padding(10).frame(maxWidth: 560, alignment: .leading)
     }
 
-    private var composer: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
+    private func suggestion(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon).frame(width: 28).foregroundStyle(Studio.accent)
+                Text(title).font(.body.weight(.medium))
+                Spacer()
+                Image(systemName: "arrow.up.right").font(.caption)
+            }.foregroundStyle(Studio.ink).padding(.horizontal, 16).frame(minHeight: 48)
+                .background(Studio.paper, in: RoundedRectangle(cornerRadius: 16))
+        }.buttonStyle(.plain)
+    }
+
+    @ViewBuilder private var composer: some View {
+        if model.selectedConnection != nil {
+            VStack(alignment: .leading, spacing: 4) {
                 if let app = referencedApp {
                     HStack {
                         Label(app.title, systemImage: "app.dashed").font(.subheadline)
@@ -186,45 +185,49 @@ struct ChatView: View {
                         }
                     }
                 }
-                TextField("Message Tether", text: $input, axis: .vertical)
-                    .focused($composerFocused).accessibilityIdentifier("chat.input")
-                    .lineLimit(1...7).textFieldStyle(.plain).padding(.horizontal, 8).padding(.top, 8).onSubmit(submit)
-                HStack {
-                    Menu {
-                        if model.isResponding {
-                            Button("Add instructions", systemImage: "text.bubble") { showingSteer = true }
-                        }
-                        Button("Mini apps", systemImage: "square.grid.2x2") { showingMiniApps = true }
-                        Button("Choose model", systemImage: "slider.horizontal.3") { showingModels = true }
-                        Button("Providers", systemImage: "network") { showingConnections = true }
-                    } label: {
-                        Image(systemName: "plus").font(.system(size: 22)).frame(width: 44, height: 44).contentShape(Rectangle())
-                    }.accessibilityLabel("Chat options")
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField("Ask Tether…", text: $input, axis: .vertical)
+                        .focused($composerFocused).accessibilityIdentifier("chat.input")
+                        .lineLimit(1...6).textFieldStyle(.plain).padding(.horizontal, 8)
+                        .frame(minHeight: 44).onSubmit(submit)
+                    if model.isResponding {
+                        Button(action: model.stop) {
+                            Image(systemName: "stop.fill").frame(width: 44, height: 44)
+                                .background(Studio.accent, in: Circle()).foregroundStyle(Studio.paper)
+                        }.accessibilityLabel(model.selectedConversation?.pendingRun?.stopRequested != true ? "Stop response" : "Stopping response")
+                            .disabled(model.selectedConversation?.pendingRun?.stopRequested == true)
+                    } else {
+                        Button(action: submit) {
+                            Image(systemName: "arrow.up").font(.headline).frame(width: 44, height: 44)
+                                .background(canSend ? Studio.accent : Studio.wash, in: Circle())
+                                .foregroundStyle(canSend ? Studio.paper : Studio.accent)
+                        }.accessibilityLabel("Send message").accessibilityIdentifier("chat.send").disabled(!canSend)
+                    }
+                }.buttonStyle(.plain)
+                HStack(spacing: 12) {
+                    if model.selectedConnection?.transport == .apiServer {
+                        Button { showingModels = true } label: {
+                            Label(model.selectedModelChoice?.model ?? model.defaultModelName ?? "Hermes default", systemImage: "cpu")
+                                .lineLimit(1).frame(minHeight: 44)
+                        }.accessibilityLabel("Choose model")
+                    }
                     Spacer()
-                if model.isResponding {
-                    Button(action: model.stop) {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
-                            .frame(width: 44, height: 44)
-                            .background(colorScheme == .dark ? Color.white : Color.black, in: Circle())
-                    }.buttonStyle(.plain).accessibilityLabel("Stop response")
-                } else {
-                    Button(action: submit) {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 21, weight: .bold))
-                            .symbolRenderingMode(.monochrome)
-                            .foregroundStyle(canSend ? (colorScheme == .dark ? Color.black : Color.white) : Color.secondary)
-                            .frame(width: 44, height: 44)
-                            .background(canSend ? (colorScheme == .dark ? Color.white : Color.black) : Color(.tertiarySystemFill), in: Circle())
-                    }.buttonStyle(.plain).accessibilityLabel("Send message")
-                        .accessibilityIdentifier("chat.send")
-                        .disabled(!canSend)
-                }
-                }
-            }.padding(10).background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 28))
-            Text("Tether may make mistakes. Check important results.").font(.caption2).foregroundStyle(.tertiary).padding(.top, 5)
-        }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 6).background(Color(.systemBackground))
+                    if model.selectedConversation?.pendingRun?.runID != nil {
+                        Button("Guide task", systemImage: "text.bubble") { showingSteer = true }
+                    }
+                    if !model.miniApps.isEmpty {
+                        Menu {
+                            ForEach(model.miniApps) { app in
+                                Button(app.title) { referencedApp = app; composerFocused = true }
+                            }
+                        } label: { Image(systemName: "paperclip").frame(width: 44, height: 44) }
+                        .accessibilityLabel("Reference a space")
+                    }
+                }.font(.caption.weight(.medium)).padding(.leading, 8)
+            }.padding(10).background(Studio.paper, in: RoundedRectangle(cornerRadius: 24))
+                .overlay { RoundedRectangle(cornerRadius: 24).strokeBorder(Studio.accent.opacity(0.16)) }
+                .padding(.horizontal, 14).padding(.vertical, 6).background(Studio.canvas)
+        }
     }
 
     private var canSend: Bool {
@@ -249,6 +252,10 @@ private struct MessageRow: View {
             if message.role == .user { Spacer(minLength: 46) }
             if message.role == .assistant {
                 VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        AgentLoop().frame(width: 26, height: 26)
+                        Text("Tether").font(.subheadline.bold()).foregroundStyle(Studio.ink)
+                    }
                     if message.content.isEmpty && pending {
                         HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Working…") }.foregroundStyle(.secondary)
                     } else {
@@ -263,7 +270,7 @@ private struct MessageRow: View {
                 Spacer(minLength: 24)
             } else {
                 Text(message.content).textSelection(.enabled).padding(.horizontal, 15).padding(.vertical, 10)
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+                    .background(Studio.wash, in: RoundedRectangle(cornerRadius: 18))
             }
         }.frame(maxWidth: .infinity)
     }
@@ -277,7 +284,7 @@ private struct AgentProgressCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(activities) { activity in
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: symbol(for: activity.state)).foregroundStyle(color(for: activity.state)).frame(width: 18)
+                        Image(systemName: symbol(for: activity.state)).foregroundStyle(Studio.ink).frame(width: 18)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(activity.title).font(.subheadline.weight(.medium))
                             if let detail = activity.detail, !detail.isEmpty { Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(4) }
@@ -287,8 +294,8 @@ private struct AgentProgressCard: View {
             }.padding(.top, 12)
         } label: {
             HStack {
-                Image(systemName: activities.contains(where: { $0.state == .running }) ? "gearshape.2" : "checkmark.circle")
-                Text(activities.contains(where: { $0.state == .running }) ? "Agent progress" : "Work completed")
+                Image(systemName: "list.bullet.indent")
+                Text(activities.contains(where: { $0.state == .failed }) ? "Review task activity" : "Task activity")
                 Spacer(); Text("\(activities.count)").font(.caption).foregroundStyle(.secondary)
             }.font(.subheadline.weight(.medium))
         }.foregroundStyle(.secondary).padding(.vertical, 6)
@@ -296,9 +303,7 @@ private struct AgentProgressCard: View {
     private func symbol(for state: AgentActivity.State) -> String {
         switch state { case .running: "circle.dotted"; case .completed: "checkmark.circle.fill"; case .failed: "xmark.circle.fill" }
     }
-    private func color(for state: AgentActivity.State) -> Color {
-        switch state { case .running: .accentColor; case .completed: .green; case .failed: .red }
-    }
+
 }
 
 private struct ApprovalCard: View {
@@ -307,9 +312,9 @@ private struct ApprovalCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Permission required", systemImage: "hand.raised.fill").font(.headline).foregroundStyle(.orange)
+            Label("Permission required", systemImage: "hand.raised.fill").font(.headline).foregroundStyle(Studio.ink)
             Text(approval.command).font(.subheadline).textSelection(.enabled)
-            HStack {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 125))]) {
                 ForEach(approval.choices, id: \.self) { choice in
                     if choice == "deny" {
                         Button(label(for: choice)) { model.resolveApproval(choice) }.buttonStyle(.bordered)
@@ -321,7 +326,7 @@ private struct ApprovalCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+        .background(Studio.wash, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func label(for choice: String) -> String {
@@ -335,57 +340,55 @@ private struct ApprovalCard: View {
     }
 }
 
-private struct ConversationDrawer: View {
+struct TaskHistory: View {
     @EnvironmentObject private var model: AppModel
-    let onClose: () -> Void
-    let onConnections: () -> Void
-    let onMiniApps: () -> Void
+    let open: () -> Void
     @State private var search = ""
-    private var conversations: [Conversation] {
-        model.conversations.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) }
+
+    private var tasks: [Conversation] {
+        model.conversations.filter { !$0.messages.isEmpty && (search.isEmpty || $0.title.localizedCaseInsensitiveContains(search)) }
+            .sorted { $0.updatedAt > $1.updatedAt }
     }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Tether").font(.title2.weight(.semibold))
-                Spacer()
-                Button("Close", systemImage: "xmark", action: onClose).labelStyle(.iconOnly)
-                    .frame(width: 44, height: 44)
-            }.padding(.horizontal, 20)
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Search chats", text: $search)
-            }.padding(12).background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12)).padding(.horizontal, 16)
+        NavigationStack {
             List {
-                Button { model.newConversation(); onClose() } label: { Label("New chat", systemImage: "square.and.pencil") }
-                Button(action: onMiniApps) { Label("Mini apps", systemImage: "square.grid.2x2") }
-                Section("Recent") {
-                    if conversations.isEmpty {
-                        Text(search.isEmpty ? "Your conversations will appear here." : "No chats match your search.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    ForEach(conversations) { conversation in
-                        Button { model.selectConversation(conversation); onClose() } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(conversation.title).lineLimit(1).foregroundStyle(.primary)
-                                }
-                                Spacer()
-                                if conversation.pendingRun != nil { ProgressView().controlSize(.small) }
-                                if conversation.id == model.selectedConversationID { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                ForEach(tasks) { task in
+                    Button {
+                        model.selectConversation(task)
+                        open()
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: task.pendingRun == nil ? "bubble.left.and.text.bubble.right" : "hourglass")
+                                .foregroundStyle(Studio.accent).frame(width: 40, height: 46)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(task.title).font(.headline).foregroundStyle(Studio.ink).lineLimit(2)
+                                if task.pendingRun != nil { Text("In progress").font(.caption) }
+                                else { Text(task.updatedAt, style: .relative).font(.caption).foregroundStyle(.secondary) }
                             }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption)
                         }
-                    }.onDelete { offsets in
-                        let selected = offsets.map { conversations[$0] }
-                        for conversation in selected { model.deleteConversation(conversation) }
-                    }
+                    }.listRowBackground(Studio.paper)
+                }.onDelete { offsets in
+                    let removed = offsets.map { tasks[$0] }
+                    for task in removed { model.deleteConversation(task) }
                 }
-            }.listStyle(.plain).scrollContentBackground(.hidden)
-            Button(action: onConnections) {
-                Label("Providers & settings", systemImage: "gearshape")
-                    .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, alignment: .leading).padding(20)
             }
-        }.padding(.top, 8)
+            .scrollContentBackground(.hidden).background(Studio.canvas)
+            .overlay {
+                if tasks.isEmpty {
+                    if search.isEmpty {
+                        ContentUnavailableView {
+                            Label("Your activity", systemImage: "clock.arrow.circlepath")
+                        } description: { Text("Return to conversations and follow work in progress here.") }
+                          actions: { Button("Open agent", action: open).buttonStyle(TetherPrimaryButtonStyle()) }
+                    } else { ContentUnavailableView.search(text: search) }
+                }
+            }
+            .searchable(text: $search, prompt: "Find a conversation")
+            .navigationTitle("Activity")
+        }
     }
 }
 
@@ -401,7 +404,7 @@ private struct ModelPickerView: View {
         NavigationStack {
             List {
                 Button { model.selectModel(nil); dismiss() } label: {
-                    modelRow(title: "Hermes default", subtitle: "Use the server’s configured model", selected: model.selectedModelChoice == nil)
+                    modelRow(title: "Hermes default", subtitle: model.defaultModelName ?? "Use the server’s configured model", selected: model.selectedModelChoice == nil)
                 }
                 ForEach(Dictionary(grouping: filtered, by: \.provider).keys.sorted(), id: \.self) { provider in
                     let choices = filtered.filter { $0.provider == provider }
@@ -417,7 +420,8 @@ private struct ModelPickerView: View {
             .overlay { if model.isLoadingModels { ProgressView("Loading models…") } }
             .searchable(text: $search, prompt: "Search models")
             .task { await model.refreshModelChoices() }
-            .navigationTitle("Model")
+            .scrollContentBackground(.hidden).background(Studio.canvas)
+            .navigationTitle("Model for this chat")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Refresh") { Task { await model.refreshModelChoices() } } }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
