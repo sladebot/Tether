@@ -18,9 +18,12 @@ These are services on the same Mac Studio. The iPhone must be connected to the s
 ## Using the app
 
 - **Home:** connection details and shortcuts to chat, Hermes bots, and mini apps.
-- **Chat:** native conversations with models discovered from Hermes, tool progress, approvals, steering, and stop controls.
+- **Agent:** native conversations with models discovered from Hermes, tool progress, approvals, steering, and stop controls.
 - **Bots:** the real profiles reported by the Studio’s Hermes gateway. Sign in to open their existing Bot Chat conversations, change a profile’s model, or create a real profile on the Studio. Model changes affect that Hermes profile. Each profile can use a different provider/model configured on the server.
-- **Library:** create an HTML mini app using the Hermes default or a selected server model, preview it, request edits, and roll back a version. Edits retain the originating connection and model.
+- **Activity:** search past conversations and return to work in progress.
+- **Spaces:** create an HTML mini app using the Hermes default or a selected server model, preview it, request edits, and roll back a version. Edits retain the originating connection and model.
+
+Tap the half-filled circle in Agent to choose White, Black, or System. [Explore the agent and Spaces walkthrough](screenshots/workflow.html).
 
 The bot roster can show names from Hermes’ public status endpoint before sign-in. This does not grant access to conversations or model settings. Tether does not replace a failed gateway request with sample bots or invented history. Earlier builds’ phone-created bot definitions are no longer used; their on-disk files are left untouched.
 
@@ -37,6 +40,21 @@ Mini-app HTML executes in an isolated, nonpersistent WebKit preview on the iPhon
 5. In **Providers → Provider settings → Bot access**, sign in using the Mac Studio’s Hermes dashboard credentials. The API key and dashboard password serve different purposes.
 
 For Debug builds, `TETHER_API_URL` and `TETHER_API_TOKEN` import an API connection into Keychain without replacing existing profiles. Release builds ignore these launch variables. `scripts/phone/launch-tether-studio.py` can fetch the current Studio key over existing authorized SSH and launch an installed build without printing the key.
+
+### Use a local model through Hermes
+
+Configure the model on the machine running Hermes. For an OpenAI-compatible local server such as Ollama or oMLX, set the Hermes profile’s model configuration to your server’s URL and an installed model ID:
+
+```yaml
+model:
+  provider: custom
+  base_url: http://127.0.0.1:11434/v1
+  default: your-installed-model-id
+```
+
+If the inference server requires authentication, configure its key in Hermes. In Tether, connect to the **Hermes API Server** using the Hermes token, then leave **Hermes default** selected in the composer. Tap the model name to choose an alternative that Hermes advertises. Loopback in the example is relative to Hermes. When Hermes runs inside a VM, use an inference address reachable from that VM.
+
+For a Hermes gateway serving multiple profiles, save each bot as a named connection using its profile URL, such as `https://your-gateway.ts.net/p/planner`. Each connection has its own conversation history and credential record.
 
 ## Verification
 

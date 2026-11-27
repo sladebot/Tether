@@ -19,16 +19,17 @@ struct DebugConnectionBootstrap {
         to savedConnections: [AgentConnection],
         url rawURL: String,
         token rawToken: String,
-        name: String = "Hermes Sandbox"
+        name: String? = nil
     ) -> Result? {
         let url = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty, !token.isEmpty else { return nil }
 
+        let loopback = URL(string: url)?.host.map { ["localhost", "127.0.0.1", "::1", "[::1]"].contains($0) } ?? false
         var sandbox = AgentConnection(
-            name: name,
+            name: name ?? (loopback ? "Local Hermes" : "Hermes Sandbox"),
             baseURL: url,
-            route: .tailscale,
+            route: loopback ? .local : .tailscale,
             transport: .apiServer
         )
         guard let origin = sandbox.normalizedBaseURL else { return nil }
@@ -68,6 +69,7 @@ final class AppModel: ObservableObject {
     @Published var conversations: [Conversation] = []
     @Published var selectedConversationID: UUID?
     @Published var modelChoices: [ModelChoice] = []
+    @Published var defaultModelName: String?
     @Published var isLoadingModels = false
     @Published var isNetworkAvailable = true
     @Published var pendingApproval: RunApproval?
@@ -99,7 +101,7 @@ final class AppModel: ObservableObject {
         let bootstrapToken = environment["TETHER_API_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let bootstrap = DebugConnectionBootstrap.apply(
             to: saved.0, url: bootstrapURL, token: bootstrapToken,
-            name: environment["TETHER_CONNECTION_NAME"] ?? "Hermes Sandbox"
+            name: environment["TETHER_CONNECTION_NAME"]
         )
         #else
         let bootstrapToken = ""
@@ -170,6 +172,8 @@ final class AppModel: ObservableObject {
         } else {
             connections.append(connection)
         }
+        modelChoices = []
+        defaultModelName = nil
         selectedConnectionID = connection.id
         let secretToPersist = connection.transport == .dashboard && store.hasDashboardTokens(for: connection)
             ? ""
@@ -186,7 +190,11 @@ final class AppModel: ObservableObject {
 
     func remove(_ connection: AgentConnection) {
         let wasSelected = selectedConnectionID == connection.id
-        if wasSelected { detachFromRun() }
+        if wasSelected {
+            detachFromRun()
+            defaultModelName = nil
+            modelChoices = []
+        }
         connections.removeAll { $0.id == connection.id }
         store.removeCredentials(for: connection.id)
         store.removeDashboardTokens(for: connection.id)
@@ -213,24 +221,37 @@ final class AppModel: ObservableObject {
         guard selectedConnectionID != connection.id else { return }
         saveCurrentChat()
         detachFromRun()
+        modelChoices = []
+        defaultModelName = nil
         selectedConnectionID = connection.id
         loadConversations(for: connection.id)
         connectionState = .idle
         persist()
-        Task { await refreshModelChoices(); resumePendingRun() }
+        Task { await checkSelectedConnection() }
     }
 
-    @discardableResult
-    func test(_ connection: AgentConnection, apiKey: String) async -> String? {
+    private var authenticationBlocked = false
+    private var checkingConnectionID: UUID?
+
+    func checkSelectedConnection() async {
+        guard let connection = selectedConnection, checkingConnectionID != connection.id else { return }
+        checkingConnectionID = connection.id
+        defer { if checkingConnectionID == connection.id { checkingConnectionID = nil } }
         connectionState = .testing
+        let client = HermesAPIClient(connection: connection, apiKey: apiKey(for: connection),
+                                     session: HermesAPIClient.diagnosticSession)
         do {
-            let model = try await HermesAPIClient(connection: connection, apiKey: apiKey, session: HermesAPIClient.diagnosticSession).testConnection()
+            _ = try await client.testConnection()
+            guard !Task.isCancelled, selectedConnectionID == connection.id else { return }
             if connection.transport == .dashboard, store.hasDashboardTokens(for: connection) {
                 try? store.saveCredential("", for: connection)
             }
+            authenticationBlocked = false
             connectionState = .connected
-            return model
+            resumePendingRun()
+            await refreshModelChoices()
         } catch {
+            guard !Task.isCancelled, selectedConnectionID == connection.id else { return }
             if let urlError = error as? URLError,
                [.cannotFindHost, .dnsLookupFailed, .cannotConnectToHost, .timedOut, .notConnectedToInternet].contains(urlError.code) {
                 connectionState = .failed(connection.route == .tailscale
@@ -239,39 +260,29 @@ final class AppModel: ObservableObject {
             } else {
                 connectionState = .failed(error.localizedDescription)
             }
-            return nil
-        }
-    }
-
-    private var authenticationBlocked = false
-    private var checkingConnection = false
-
-    func checkSelectedConnection() async {
-        guard !checkingConnection else { return }
-        guard let connection = selectedConnection else { return }
-        checkingConnection = true
-        defer { checkingConnection = false }
-        _ = await test(connection, apiKey: apiKey(for: connection))
-        if connectionState == .connected {
-            authenticationBlocked = false
-            await refreshModelChoices()
-            resumePendingRun()
         }
     }
 
     func refreshModelChoices() async {
         guard let connection = selectedConnection, connection.transport == .apiServer else {
             modelChoices = []
+            defaultModelName = nil
+            isLoadingModels = false
             return
         }
         isLoadingModels = true
-        defer { isLoadingModels = false }
+        defer { if selectedConnectionID == connection.id { isLoadingModels = false } }
         do {
-            modelChoices = try await HermesAPIClient(
+            let catalog = try await HermesAPIClient(
                 connection: connection, apiKey: apiKey(for: connection)
             ).modelOptions()
+            guard selectedConnectionID == connection.id else { return }
+            modelChoices = catalog.choices
+            defaultModelName = catalog.defaultModel
         } catch {
+            guard selectedConnectionID == connection.id else { return }
             modelChoices = []
+            defaultModelName = nil
         }
     }
 
@@ -397,7 +408,7 @@ final class AppModel: ObservableObject {
         Build this mini app: \(request)
         \(context)
 
-        Return exactly one complete, self-contained HTML document beginning with <!DOCTYPE html>. Do not use Markdown fences or add commentary. Put all CSS and JavaScript inline. Do not use external packages, URLs, fonts, images, network requests, iframes, or APIs. The app must work offline, fit a mobile viewport, support touch, use accessible labels and contrast, respect light/dark color schemes, and persist state only in memory for the current run.
+        Return exactly one complete, self-contained HTML document beginning with <!DOCTYPE html>. Do not use Markdown fences or add commentary. Put all CSS and JavaScript inline. Do not use external packages, URLs, fonts, images, network requests, iframes, or APIs. The app must work offline, fit a mobile viewport, support touch, use accessible labels and contrast, use a black-and-white palette unless the request specifies colors, follow the device appearance with prefers-color-scheme, and persist state only in memory for the current run.
         """
         miniAppJob = MiniAppBuildJob(connectionID: connection.id, title: title, prompt: builderPrompt, model: modelChoice ?? app?.model)
         miniAppJob?.targetAppID = app?.id
@@ -949,6 +960,7 @@ final class AppModel: ObservableObject {
     }
 
     private func detachFromRun() {
+        pendingApproval = nil
         responseTask?.cancel()
         responseTask = nil
         isResponding = false

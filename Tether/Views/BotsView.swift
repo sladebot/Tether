@@ -1,11 +1,9 @@
 import SwiftUI
 
-enum TetherTab: Hashable { case home, chat, bots, library }
+enum TetherTab: Hashable { case home, chat, bots, library, activity }
 
 enum TetherTheme {
-    static let accent = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.48, green: 0.82, blue: 0.75, alpha: 1) : UIColor(red: 0.10, green: 0.35, blue: 0.31, alpha: 1)
-    })
+    static let accent = Studio.accent
 }
 
 struct HomeView: View {

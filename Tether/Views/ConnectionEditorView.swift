@@ -3,7 +3,6 @@ import SwiftUI
 struct ConnectionEditorView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var inputFocused: Bool
     private let existing: AgentConnection?
     private let draftID: UUID
@@ -65,6 +64,7 @@ struct ConnectionEditorView: View {
             botAccessSection
             advancedSection
         }
+        .scrollContentBackground(.hidden).background(Studio.canvas)
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle(existing == nil ? "Add Hermes" : "Hermes settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -76,8 +76,8 @@ struct ConnectionEditorView: View {
                 if let onSaved { onSaved() } else { dismiss() }
             } label: {
                 Text(existing == nil ? "Add Hermes" : "Save provider").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 16)
-                    .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
-                    .background(colorScheme == .dark ? Color.white : Color.black, in: RoundedRectangle(cornerRadius: 18))
+                    .foregroundStyle(Studio.paper)
+                    .background(Studio.accent, in: RoundedRectangle(cornerRadius: 18))
             }
             .buttonStyle(.plain)
             .disabled(validationMessage != nil || testing)
@@ -110,8 +110,11 @@ struct ConnectionEditorView: View {
 
     private var connectionFields: some View {
         Section("Connection") {
+            Picker("Connect over", selection: $route) {
+                ForEach(AgentConnection.Route.allCases) { Text($0.rawValue).tag($0) }
+            }
             VStack(alignment: .leading, spacing: 8) {
-                Text("Tailscale URL").font(.subheadline.weight(.medium))
+                Text(route == .tailscale ? "Tailscale URL" : "Server URL").font(.subheadline.weight(.medium))
                 TextField(addressPlaceholder, text: $address, axis: .vertical)
                     .textInputAutocapitalization(.never).keyboardType(.URL).autocorrectionDisabled()
                     .focused($inputFocused)
@@ -186,7 +189,6 @@ struct ConnectionEditorView: View {
                     .disabled(validationMessage != nil || credentialOrigin != draft.normalizedBaseURL)
                 }
                 LabeledContent("Provider", value: "Hermes")
-                LabeledContent("Connect over", value: route.rawValue)
                 LabeledContent("Protocol", value: transport.title)
                 if let url = draft.normalizedBaseURL {
                     Text("Read-only details from your URL").font(.caption).foregroundStyle(.secondary)
